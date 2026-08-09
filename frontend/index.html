@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0b1327" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Eteria: Fragmentos del Eclipse</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div id="game-root">
+      <canvas id="game-canvas"></canvas>
+
+      <div id="loading-screen" class="screen active">
+        <div class="logo-mark">✦</div>
+        <h1>ETERIA</h1>
+        <p>Fragmentos del Eclipse</p>
+        <div class="loader"><span></span></div>
+      </div>
+
+      <div id="menu-screen" class="screen">
+        <div class="menu-card glass">
+          <div class="eyebrow">RPG 3D • MOBILE</div>
+          <h1>ETERIA</h1>
+          <h2>Fragmentos del Eclipse</h2>
+          <p class="story">El eclipse quebró el corazón de Eteria. Recupera los fragmentos, derrota a las Sombras y abre el portal antes de que el valle desaparezca.</p>
+          <button id="start-btn" class="primary-btn">Nueva aventura</button>
+          <button id="continue-btn" class="secondary-btn hidden">Continuar</button>
+          <div class="menu-hint">Móvil: joystick + botones · PC: WASD + Espacio + Shift</div>
+        </div>
+      </div>
+
+      <div id="hud" class="hidden">
+        <section class="hud-top-left glass compact">
+          <div class="avatar">A</div>
+          <div class="bars">
+            <div class="level-line"><strong id="level-label">Nv. 1</strong><span id="gold-label">0 ✦</span></div>
+            <div class="bar health"><span id="health-bar"></span><b id="health-text">100 / 100</b></div>
+            <div class="bar xp"><span id="xp-bar"></span></div>
+          </div>
+        </section>
+
+        <section id="quest-card" class="hud-quest glass compact">
+          <div class="eyebrow">MISIÓN ACTUAL</div>
+          <strong>Fragmentos del Eclipse</strong>
+          <div id="quest-enemies">Sombras: 0 / 6</div>
+          <div id="quest-crystals">Fragmentos: 0 / 5</div>
+          <div id="quest-status">El portal sigue sellado.</div>
+        </section>
+
+        <canvas id="minimap" width="150" height="150" aria-label="Minimapa"></canvas>
+
+        <button id="pause-btn" class="icon-btn top-button" aria-label="Pausar">Ⅱ</button>
+
+        <div id="toast" class="toast"></div>
+
+        <div id="mobile-controls">
+          <div id="joystick" class="joystick">
+            <div class="joystick-ring"></div>
+            <div id="joystick-thumb" class="joystick-thumb"></div>
+          </div>
+          <div class="action-cluster">
+            <button id="potion-btn" class="action-btn small potion" aria-label="Usar poción"><span>✚</span><b id="potion-count">3</b></button>
+            <button id="dash-btn" class="action-btn dash" aria-label="Dash"><span>➤</span></button>
+            <button id="attack-btn" class="action-btn attack" aria-label="Atacar"><span>⚔</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div id="pause-screen" class="screen">
+        <div class="menu-card glass pause-card">
+          <div class="eyebrow">AVENTURA EN PAUSA</div>
+          <h2>Descansa, viajero</h2>
+          <button id="resume-btn" class="primary-btn">Continuar</button>
+          <button id="save-btn" class="secondary-btn">Guardar partida</button>
+          <button id="restart-btn" class="danger-btn">Reiniciar aventura</button>
+        </div>
+      </div>
+
+      <div id="victory-screen" class="screen">
+        <div class="menu-card glass victory-card">
+          <div class="logo-mark">✦</div>
+          <div class="eyebrow">CAPÍTULO COMPLETADO</div>
+          <h1>Eteria respira otra vez</h1>
+          <p>Has reunido los fragmentos suficientes para reabrir el portal. Esta base queda preparada para añadir nuevas zonas, jefes, NPC y equipo.</p>
+          <div id="victory-stats" class="victory-stats"></div>
+          <button id="victory-restart-btn" class="primary-btn">Jugar de nuevo</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

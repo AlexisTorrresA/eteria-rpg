@@ -1,0 +1,11 @@
+{
+  "name": "Eteria: Fragmentos del Eclipse",
+  "short_name": "Eteria RPG",
+  "description": "RPG 3D móvil hecho con JavaScript, Three.js y FastAPI.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#07101f",
+  "theme_color": "#0b1327",
+  "orientation": "landscape",
+  "icons": [{"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}

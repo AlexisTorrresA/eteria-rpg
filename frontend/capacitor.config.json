@@ -1,0 +1,8 @@
+{
+  "appId": "com.alexis.eteria",
+  "appName": "Eteria RPG",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1,0 +1,9 @@
+.git
+.github
+**/node_modules
+frontend/dist
+frontend/android
+__pycache__
+.pytest_cache
+*.pyc
+.env
