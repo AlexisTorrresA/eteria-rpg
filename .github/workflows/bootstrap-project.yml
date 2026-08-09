@@ -27,8 +27,8 @@ jobs:
           rm -rf .bootstrap
           find /tmp/eteria-unpack/eteria-rpg -type d -name __pycache__ -prune -exec rm -rf {} +
           find /tmp/eteria-unpack/eteria-rpg -type f -name '*.pyc' -delete
+          rm -rf /tmp/eteria-unpack/eteria-rpg/.github/workflows
           cp -a /tmp/eteria-unpack/eteria-rpg/. .
-          rm -f .github/workflows/bootstrap-project.yml
 
       - name: Commit full project
         run: |
