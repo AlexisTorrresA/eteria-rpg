@@ -161,7 +161,7 @@ export function createHeroModel(weapon) {
   weaponSocket.add(createWeaponModel(weapon));
 
   root.add(torso,chest,belt,buckle,head,hair,brow,eyeL,eyeR,shoulderL,shoulderR,armL,armR,legL,legR,cape,backRune,weaponSocket);
-  return { root, weaponSocket, armL, armR, legL, legR, cape, rune: backRune };
+  return { root, weaponSocket, armL, armR, legL, legR, cape, rune: backRune, torso, chest, hair, brow, shoulderL, shoulderR };
 }
 
 function addEnemyFace(group, glowColor, y, z) {
