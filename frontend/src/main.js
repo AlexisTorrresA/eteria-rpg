@@ -308,9 +308,13 @@ class EteriaGame {
     this.enemies = [];
     this.crystals = [];
     this.boss = null;
-    this.spawnEnemies(Math.max(4, 11 - this.state.kills));
-    this.spawnCrystals(Math.max(2, 9 - this.state.crystals));
-    if (this.isBossReady() && !this.state.bossDefeated) this.spawnBoss();
+    if (this.state.currentRegion === 'ashen-wastes') {
+      this.world?.spawnAshEnemies();
+    } else {
+      this.spawnEnemies(Math.max(4, 11 - this.state.kills));
+      this.spawnCrystals(Math.max(2, 9 - this.state.crystals));
+      if (this.isBossReady() && !this.state.bossDefeated) this.spawnBoss();
+    }
   }
 
   spawnEnemies(count) {
@@ -624,8 +628,13 @@ class EteriaGame {
     } else {
       this.player.position.y = THREE.MathUtils.lerp(this.player.position.y, 0, .2);
     }
-    this.player.position.x = clamp(this.player.position.x, -HALF_WORLD, HALF_WORLD);
-    this.player.position.z = clamp(this.player.position.z, -HALF_WORLD, HALF_WORLD);
+    if (this.state.currentRegion === 'ashen-wastes') {
+      this.player.position.x = clamp(this.player.position.x, 66, 144);
+      this.player.position.z = clamp(this.player.position.z, -40, 40);
+    } else {
+      this.player.position.x = clamp(this.player.position.x, -40, 40);
+      this.player.position.z = clamp(this.player.position.z, -40, 40);
+    }
 
     const gait = moving ? Math.sin(this.elapsed * 10) : 0;
     this.heroRig.legL.rotation.x = gait * .55;
@@ -777,13 +786,27 @@ class EteriaGame {
 
   updateAtmosphere() {
     const cycle = (Math.sin(this.elapsed * .025) + 1) * .5;
-    const day = new THREE.Color(0x1e3850);
-    const dusk = new THREE.Color(0x11172b);
-    this.scene.background.copy(dusk).lerp(day, .35 + cycle * .48);
-    this.scene.fog.color.copy(this.scene.background);
-    this.hemi.intensity = 1.45 + cycle * .9;
-    this.sun.intensity = 1.8 + cycle * 1.05;
-    this.sun.position.x = Math.cos(this.elapsed * .025) * 26;
+    if (this.state.currentRegion === 'ashen-wastes') {
+      const ash = new THREE.Color(0x2a1c1c);
+      const ember = new THREE.Color(0x5b2b22);
+      this.scene.background.copy(ash).lerp(ember, .2 + cycle * .22);
+      this.scene.fog.color.copy(this.scene.background);
+      this.scene.fog.density = .024;
+      this.hemi.intensity = 1.05 + cycle * .38;
+      this.sun.intensity = 1.35 + cycle * .45;
+      this.sun.color.setHex(0xffb36b);
+      this.sun.position.set(95,24,18);
+    } else {
+      const day = new THREE.Color(0x1e3850);
+      const dusk = new THREE.Color(0x11172b);
+      this.scene.background.copy(dusk).lerp(day, .35 + cycle * .48);
+      this.scene.fog.color.copy(this.scene.background);
+      this.scene.fog.density = .018;
+      this.hemi.intensity = 1.45 + cycle * .9;
+      this.sun.intensity = 1.8 + cycle * 1.05;
+      this.sun.color.setHex(0xfff1cc);
+      this.sun.position.x = Math.cos(this.elapsed * .025) * 26;
+    }
   }
 
   updateUI() {
@@ -812,7 +835,7 @@ class EteriaGame {
     if (this.boss && !this.state.bossDefeated) {
       UI.bossHud.classList.remove('hidden');
       UI.bossBar.style.width = `${Math.max(0, this.boss.hp / this.boss.maxHp) * 100}%`;
-      UI.bossText.textContent = `${BOSS.name} · ${Math.max(0, Math.ceil(this.boss.hp))} / ${this.boss.maxHp}`;
+      UI.bossText.textContent = `${BOSS.name} · Fase ${this.boss.bossPhase || 1} · ${Math.max(0, Math.ceil(this.boss.hp))} / ${this.boss.maxHp}`;
     } else {
       UI.bossHud.classList.add('hidden');
     }
@@ -825,14 +848,18 @@ class EteriaGame {
     mapCtx.translate(w/2,h/2);
     mapCtx.beginPath(); mapCtx.arc(0,0,w*.47,0,Math.PI*2); mapCtx.clip();
     mapCtx.fillStyle = 'rgba(8, 30, 31, .88)'; mapCtx.fillRect(-w/2,-h/2,w,h);
-    const s = (w*.43) / HALF_WORLD;
-    const dot = (x,z,r,color) => { mapCtx.beginPath(); mapCtx.arc(x*s, z*s, r, 0, Math.PI*2); mapCtx.fillStyle=color; mapCtx.fill(); };
+    const centerX = this.state.currentRegion === 'ashen-wastes' ? 105 : 0;
+    const localHalf = 42;
+    const s = (w*.43) / localHalf;
+    const dot = (x,z,r,color) => { mapCtx.beginPath(); mapCtx.arc((x-centerX)*s, z*s, r, 0, Math.PI*2); mapCtx.fillStyle=color; mapCtx.fill(); };
     for (const c of this.crystals) dot(c.mesh.position.x,c.mesh.position.z,2.4,'#67e8f9');
     for (const e of this.enemies) {
-      const color = e.isBoss ? '#f0abfc' : e.archetype.id === 'guardian' ? '#a78bfa' : e.archetype.id === 'marauder' ? '#fb923c' : '#fb7185';
+      if (Math.abs(e.group.position.x-centerX) > 48) continue;
+      const color = e.isBoss ? '#f0abfc' : e.archetype.id === 'ashArcher' ? '#fb923c' : e.archetype.id === 'ashHound' ? '#ef4444' : e.archetype.id === 'guardian' ? '#a78bfa' : e.archetype.id === 'marauder' ? '#fb923c' : '#fb7185';
       dot(e.group.position.x,e.group.position.z,e.isBoss ? 3.8 : 2.2,color);
     }
-    dot(this.portal.position.x,this.portal.position.z,3.1,this.isPortalUnlocked() ? '#fbbf24' : '#7c3aed');
+    if (this.state.currentRegion !== 'ashen-wastes') dot(this.portal.position.x,this.portal.position.z,3.1,this.isPortalUnlocked() ? '#fbbf24' : '#7c3aed');
+    if (this.state.currentRegion === 'ashen-wastes' && this.world?.endBeacon) dot(this.world.endBeacon.position.x,this.world.endBeacon.position.z,3.4,'#fbbf24');
     dot(this.player.position.x,this.player.position.z,3.8,'#f8fafc');
     mapCtx.restore();
     mapCtx.strokeStyle='rgba(255,255,255,.22)'; mapCtx.lineWidth=2; mapCtx.beginPath(); mapCtx.arc(w/2,h/2,w*.47,0,Math.PI*2); mapCtx.stroke();
