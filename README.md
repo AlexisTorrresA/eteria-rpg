@@ -1,62 +1,75 @@
 # Eteria: Fragmentos del Eclipse
 
-RPG 3D mobile-first hecho con **JavaScript + Three.js + HTML5/CSS**, empaquetable como **APK Android con Capacitor** y servido por **Python/FastAPI**. Está preparado para desplegarse en **Render** usando Docker.
+RPG 3D mobile-first hecho con **JavaScript + Three.js + HTML5/CSS**, empaquetable como **APK Android con Capacitor** y servido por **Python/FastAPI**.
 
-## Qué incluye
+## Estado actual
 
-- Mundo 3D low-poly procedural, sin assets 3D externos obligatorios.
-- Héroe en tercera persona y cámara con seguimiento suave.
-- Controles táctiles: joystick, ataque, dash y poción.
-- Teclado para probar en PC: `WASD`, `Espacio`, `Shift`, `Q`, `Esc`.
-- Enemigos con IA simple: patrulla, persecución y ataque.
-- Combate, vida, daño, XP, niveles y esencia/moneda.
-- Fragmentos coleccionables y objetivo de misión.
-- Portal final que se desbloquea al completar la misión.
-- Minimapa en tiempo real.
-- Guardado automático/local con `localStorage`.
-- PWA básica con manifest y service worker.
-- FastAPI con `/api/health`, `/api/game-config` y documentación `/api/docs`.
-- Dockerfile multi-stage listo para Render.
-- GitHub Action para generar un `app-debug.apk` descargable desde Actions.
+### Eteria 3.0
 
-### Eteria 2.0
+La versión 3.0 incorpora sistemas RPG completos sobre la base de Eteria 2.0:
 
-La versión 2.0 amplía la primera zona jugable con una progresión más cercana a un RPG:
+- héroe procedural con armadura, capa, runas y animaciones de movimiento;
+- **seis armas** con daño, alcance, crítico y técnica especial propia;
+- **combo de cuatro golpes** con movimientos distintos según el arma;
+- técnicas especiales:
+  - Hoja de Éter: **Arco de Éter**;
+  - Hacha de Brasa: **Corte Infernal** con quemadura;
+  - Lanza Lunar: **Estocada Lunar** de largo alcance;
+  - Dagas de la Grieta: **Ráfaga Fantasma** de cinco impactos;
+  - Martillo Solar: **Terremoto Solar** con daño de área y empuje;
+  - Guja del Eclipse: **Espiral del Eclipse** con robo de vida;
+- enemigos con animaciones de ataque y tres arquetipos diferentes;
+- jefe **Vharok, Guardián del Eclipse**;
+- **inventario visual** con armas, materiales, estadísticas y equipo;
+- **seis cofres físicos** con loot persistente;
+- objetos y materiales: Polvo de Éter, Fragmentos Lunares, Núcleos de Brasa y Sellos Antiguos;
+- NPC físicos **Liora** y **Eldren**;
+- diálogos que cambian según el capítulo de la historia;
+- recompensas únicas por conversar con NPC;
+- partículas 3D, ondas, arcos, estelas y números flotantes de daño;
+- minimapa, jefe, XP, niveles, pociones y guardado local;
+- persistencia de inventario, cofres abiertos y recompensas de NPC.
 
-- héroe procedural rediseñado con armadura, extremidades animadas, capa y runas;
-- seis armas con daño, velocidad, alcance, crítico y desbloqueo progresivo;
-- Sombra Errante, Saqueador del Umbral y Guardián Caído con estadísticas y siluetas diferentes;
-- capítulos narrativos guiados por Liora y Eldren;
-- jefe final **Vharok, Guardián del Eclipse**;
-- barra de vida del jefe, arma equipada y cambio de arma en HUD;
-- el portal solo se abre después de reunir los fragmentos y derrotar a Vharok.
+## Controles
 
-En PC: `R` cambia de arma y las teclas `1` a `6` seleccionan directamente las armas ya desbloqueadas.
+### PC
+
+- `WASD`: movimiento
+- `Espacio`: ataque / combo
+- `E`: técnica especial
+- `F`: interactuar con NPC o cofres
+- `I`: inventario
+- `R`: cambiar arma
+- `1-6`: seleccionar arma desbloqueada
+- `Q`: poción
+- `Shift`: dash
+- `Esc`: cerrar panel / pausa
+
+### Móvil
+
+Joystick virtual más botones dedicados para combo, técnica especial, dash, poción, cambio de arma e interacción.
 
 ## Arquitectura
 
 ```text
 eteria-rpg/
 ├─ frontend/
-│  ├─ src/main.js              # motor y lógica del RPG
-│  ├─ src/style.css            # UI mobile-first
-│  ├─ public/                  # PWA e icono
-│  ├─ capacitor.config.json    # Android/Capacitor
+│  ├─ src/main.js
+│  ├─ src/gameData.js
+│  ├─ src/models.js
+│  ├─ src/rpgSystems.js
+│  ├─ src/style.css
+│  ├─ public/
 │  └─ package.json
 ├─ backend/
-│  ├─ main.py                  # FastAPI + frontend estático
+│  ├─ main.py
 │  └─ requirements.txt
-├─ .github/workflows/          # checks + APK Android
+├─ .github/workflows/
 ├─ Dockerfile
-├─ render.yaml
 └─ README.md
 ```
 
-## 1. Ejecutarlo localmente para desarrollar
-
-Requisitos: **Node.js 22+** y **Python 3.13** recomendados.
-
-Terminal 1:
+## Desarrollo local
 
 ```bash
 cd frontend
@@ -64,19 +77,7 @@ npm install
 npm run dev
 ```
 
-El juego queda normalmente en `http://localhost:5173`.
-
-Terminal 2, para probar también la API:
-
-```bash
-python -m venv .venv
-# Windows PowerShell: .venv\Scripts\Activate.ps1
-# Linux/macOS: source .venv/bin/activate
-pip install -r backend/requirements.txt
-uvicorn backend.main:app --reload --port 8000
-```
-
-## 2. Probar el mismo build que se usa en producción
+Para probar el build de producción:
 
 ```bash
 cd frontend
@@ -87,105 +88,25 @@ pip install -r backend/requirements.txt
 uvicorn backend.main:app --host 0.0.0.0 --port 10000
 ```
 
-Abre `http://localhost:10000`.
-
-## 3. Ejecutarlo con Docker
+## Docker
 
 ```bash
 docker build -t eteria-rpg .
 docker run --rm -p 10000:10000 eteria-rpg
 ```
 
-Abre `http://localhost:10000`.
+## Android
 
-## 4. Subir a GitHub
+Al hacer push a `main`, el workflow **Build Android APK** genera automáticamente un APK debug descargable desde GitHub Actions.
 
-Si creas un repositorio vacío llamado `eteria-rpg`:
+## Despliegue Y700
 
-```bash
-git init
-git add .
-git commit -m "feat: initial Eteria 3D RPG"
-git branch -M main
-git remote add origin https://github.com/TU_USUARIO/eteria-rpg.git
-git push -u origin main
-```
+El workflow **Build and publish Y700 image** publica la imagen de producción en GHCR para el despliegue del servidor Y700.
 
-## 5. Desplegar en Render
+## Próximas expansiones posibles
 
-El repositorio ya contiene `render.yaml` y `Dockerfile`.
-
-1. En Render elige **New > Blueprint**.
-2. Conecta el repositorio de GitHub.
-3. Selecciona este repositorio.
-4. Render detectará `render.yaml` y construirá el contenedor.
-5. El health check es `/api/health`.
-
-También puedes crear un Web Service manualmente usando el repositorio con runtime Docker.
-
-## 6. Crear APK Android en tu PC
-
-Necesitas Android Studio/Android SDK además de Node 22+.
-
-```bash
-cd frontend
-npm install
-npm run build
-npx cap add android
-npx cap sync android
-npx cap open android
-```
-
-Android Studio abrirá el proyecto. Desde ahí puedes ejecutar en un teléfono/emulador o generar un APK/AAB firmado.
-
-Después de modificar el juego:
-
-```bash
-npm run build
-npx cap sync android
-```
-
-## 7. Crear APK automáticamente en GitHub
-
-Al hacer push a `main`, el workflow **Build Android APK** compila el juego y crea un APK debug.
-
-En GitHub:
-
-1. Abre **Actions**.
-2. Entra a **Build Android APK**.
-3. Abre la ejecución terminada.
-4. Descarga el artefacto `eteria-rpg-debug-apk`.
-
-Para publicar en Google Play debes crear y proteger una keystore y compilar un **AAB release firmado**. El workflow incluido genera intencionalmente un APK de prueba sin secretos.
-
-## Cómo ampliar el RPG
-
-Los siguientes pasos naturales son:
-
-- Sustituir el héroe procedural por modelos `.glb/.gltf` y animaciones.
-- Inventario visual con armas, armaduras y estadísticas.
-- NPC, diálogos y árbol de misiones.
-- Jefe final con fases.
-- Múltiples mapas/biomas.
-- Sonido y música.
-- Base de datos/PostgreSQL para cuentas y guardado cloud.
-- Login y partidas sincronizadas.
-- Multijugador mediante WebSockets.
+El código de Eteria 3.0 deja preparados los sistemas para añadir armaduras equipables, comerciantes, árbol de habilidades, misiones secundarias, nuevos mapas/biomas, fases adicionales para jefes, sonido/música, guardado cloud y multijugador.
 
 ## Licencia
 
-Código del proyecto: MIT. Three.js también usa licencia MIT. Revisa por separado la licencia de cualquier asset externo que agregues en el futuro.
-
-## Atajos para Windows PowerShell
-
-Desde la raíz del proyecto:
-
-```powershell
-.\scripts\run-local.ps1
-```
-
-Para preparar y abrir el proyecto Android:
-
-```powershell
-.\scripts\build-apk.ps1
-```
+Código del proyecto: MIT. Three.js también usa licencia MIT.
