@@ -376,8 +376,8 @@ export class KayKitHeroController {
     this.rightHand = findNode(model, 'right');
     this.leftHand = findNode(model, 'left');
     this.headBone = findHead(model);
-    this.driver = new AnimationDriver(model, gltf.animations || []);
-    this.driver.loop('idle', 0);
+    this.driver = new AnimationDriver(model, gltf.animations || [], this.weapon?.id || 'aether-blade');
+    this.driver.loop('idle', 0, 1);
 
     this.game.player.add(model);
     previous?.removeFromParent();
@@ -393,6 +393,7 @@ export class KayKitHeroController {
   async setWeapon(weapon) {
     if (!weapon || !this.model) return;
     this.weapon = weapon;
+    this.driver?.configure(weapon.id);
     const token = ++this.weaponToken;
     this.clearWeapons();
 
@@ -463,20 +464,55 @@ export class KayKitHeroController {
   }
 
   playAttack(step = 0) {
-    this.driver?.shot(step >= 3 ? 'heavy' : step % 2 ? 'attack2' : 'attack1', step >= 3 ? 1.05 : 1.18);
+    const sequence = ['attack1', 'attack2', 'attack3', 'heavy'];
+    const id = this.weapon?.id || 'aether-blade';
+    const speed = {
+      'aether-blade': 1.08,
+      'ember-axe': .88,
+      'moon-spear': 1.02,
+      'rift-daggers': 1.28,
+      'sun-hammer': .84,
+      'eclipse-glaive': .98,
+    }[id] || 1.05;
+    this.driver?.shot(sequence[Math.min(3, Math.max(0, step))], step >= 3 ? speed * .92 : speed);
   }
 
   playSpecial(weaponId) {
-    this.driver?.shot('heavy', ['ember-axe','sun-hammer'].includes(weaponId) ? .9 : 1.12);
+    const speed = {
+      'aether-blade': 1.02,
+      'ember-axe': .82,
+      'moon-spear': .96,
+      'rift-daggers': 1.24,
+      'sun-hammer': .78,
+      'eclipse-glaive': .92,
+    }[weaponId] || 1;
+    this.driver?.shot('heavy', speed, .06);
   }
 
   playDash() {
-    this.driver?.shot('dash', 1.2);
+    this.driver?.shot('dash', 1.16, .055);
   }
 
-  update(dt, moving, dashing = false) {
+  update(dt, moving, dashing = false, motion = {}) {
     if (!this.ready || !this.driver) return;
-    if (!this.driver.oneShot) this.driver.loop(dashing ? 'run' : moving ? 'walk' : 'idle');
+
+    const inputStrength = motion.inputStrength ?? (moving ? 1 : 0);
+    const locomotionBlend = motion.locomotionBlend ?? inputStrength;
+    let loop = 'idle';
+    let timeScale = 1;
+
+    if (dashing) {
+      loop = 'run';
+      timeScale = 1.28;
+    } else if (moving) {
+      const running = locomotionBlend > .48;
+      loop = running ? 'run' : 'walk';
+      timeScale = running
+        ? THREE.MathUtils.lerp(.92, 1.18, locomotionBlend)
+        : THREE.MathUtils.lerp(.72, 1.08, THREE.MathUtils.clamp(inputStrength / .55, 0, 1));
+    }
+
+    if (!this.driver.oneShot) this.driver.loop(loop, loop === 'idle' ? .22 : .16, timeScale);
     this.driver.update(dt);
   }
 }
@@ -505,8 +541,8 @@ export class KayKitEnemyController {
     this.enemy.group.add(model);
     for (const child of this.fallback) child.visible = false;
     this.model = model;
-    this.driver = new AnimationDriver(model, gltf.animations || []);
-    this.driver.loop('idle', 0);
+    this.driver = new AnimationDriver(model, gltf.animations || [], this.config.weapon || 'aether-blade');
+    this.driver.loop('idle', 0, 1);
     this.ready = true;
 
     const rightHand = findNode(model, 'right');
@@ -539,8 +575,8 @@ export class KayKitEnemyController {
 
   update(dt, moving = false, attacking = false) {
     if (!this.ready || !this.driver) return;
-    if (attacking && !this.driver.oneShot) this.driver.shot('attack1', 1.12);
-    if (!this.driver.oneShot) this.driver.loop(moving ? 'walk' : 'idle');
+    if (attacking && !this.driver.oneShot) this.driver.shot('attack1', 1.04, .07);
+    if (!this.driver.oneShot) this.driver.loop(moving ? 'run' : 'idle', .18, moving ? .92 : 1);
     this.driver.update(dt);
 
     if (this.flashTimer > 0) {
