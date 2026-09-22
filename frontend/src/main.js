@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import { WEAPONS, ENEMY_ARCHETYPES, BOSS, STORY, weaponUnlocked } from './gameData.js';
 import { createHeroModel, createEnemyModel, createWeaponModel } from './models.js';
+import { RPGSystems } from './rpgSystems.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game-canvas');
@@ -93,6 +94,7 @@ class EteriaGame {
     this.defaultState();
     this.createWorld();
     this.createPlayer();
+    this.rpg = new RPGSystems(this, { toast, vibrate });
     this.bindInput();
     this.onResize();
     addEventListener('resize', () => this.onResize());
@@ -270,6 +272,7 @@ class EteriaGame {
     }
     this.unlockedWeaponIds = nextIds;
     if (!nextIds.has(this.state.weaponId)) this.state.weaponId = available[0]?.id || WEAPONS[0].id;
+    this.rpg?.renderInventory();
     return available;
   }
 
@@ -281,6 +284,8 @@ class EteriaGame {
     this.weaponSocket.add(createWeaponModel(weapon));
     if (announce) toast(`${weapon.icon} ${weapon.name} equipada`);
     this.updateUI();
+    this.rpg?.renderInventory();
+    this.rpg?.updateSpecialUI();
     return true;
   }
 
@@ -376,6 +381,7 @@ class EteriaGame {
     this.defaultState();
     this.unlockedWeaponIds = new Set();
     this.storyKey = 'intro';
+    this.rpg?.syncState();
     localStorage.removeItem(SAVE_KEY);
     this.player.position.set(0,0,10);
     this.resetWorldEntities();
@@ -391,6 +397,7 @@ class EteriaGame {
       const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
       this.defaultState();
       Object.assign(this.state, saved?.state || {});
+      this.rpg?.syncState();
       this.storyKey = this.state.chapter || 'intro';
       this.updateStoryProgress();
       this.player.position.set(this.state.x || 0, 0, this.state.z || 10);
@@ -430,7 +437,7 @@ class EteriaGame {
     if (!this.active) return;
     this.state.x = Number(this.player.position.x.toFixed(2));
     this.state.z = Number(this.player.position.z.toFixed(2));
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 2, state: this.state, savedAt: Date.now() }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 3, state: this.state, savedAt: Date.now() }));
     continueBtn.classList.remove('hidden');
   }
 
@@ -450,12 +457,19 @@ class EteriaGame {
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.dash();
       if (e.code === 'KeyQ') this.usePotion();
       if (e.code === 'KeyR') this.cycleWeapon();
+      if (e.code === 'KeyE') this.rpg?.specialAttack();
+      if (e.code === 'KeyF') this.rpg?.interact();
+      if (e.code === 'KeyI') this.rpg?.toggleInventory();
       if (e.code.startsWith('Digit')) {
         const slot = Number(e.code.slice(5)) - 1;
         const available = this.updateWeaponUnlocks(false);
         if (slot >= 0 && slot < available.length) this.equipWeapon(available[slot].id);
       }
-      if (e.code === 'Escape') this.paused ? this.resume() : this.pause();
+      if (e.code === 'Escape') {
+        if (this.rpg?.inventoryOpen) this.rpg.closeInventory();
+        else if (this.rpg?.dialogueOpen) this.rpg.closeDialogue();
+        else this.paused ? this.resume() : this.pause();
+      }
     });
     addEventListener('keyup', (e) => { this.keys[e.code] = false; });
 
@@ -485,44 +499,11 @@ class EteriaGame {
   }
 
   attack() {
-    if (!this.active || this.paused || this.finished || this.attackTimer > 0) return;
-    const weapon = this.currentWeapon();
-    this.attackTimer = weapon.cooldown;
-    this.weaponSocket.userData.swing = Math.min(.34, weapon.cooldown * .72 + .08);
-    vibrate(18);
-    const forward = this.lastMove.clone().normalize();
-    let hit = false;
-    for (const enemy of [...this.enemies]) {
-      const delta = enemy.group.position.clone().sub(this.player.position);
-      const distance = delta.length();
-      if (distance > weapon.range) continue;
-      delta.y = 0;
-      const dot = delta.normalize().dot(forward);
-      if (dot < -.22) continue;
-      hit = true;
-      const critical = Math.random() < weapon.crit;
-      const base = weapon.damage + (this.state.level - 1) * 6;
-      const damage = Math.round(base * (critical ? 1.75 : 1));
-      enemy.hp -= damage;
-      enemy.group.scale.multiplyScalar(1.08);
-      enemy.bodyMat.emissiveIntensity = critical ? 3.4 : 2.4;
-      if (critical) toast(`¡CRÍTICO! ${damage} de daño`);
-      setTimeout(() => {
-        if (enemy.group.parent) {
-          const targetScale = enemy.isBoss ? BOSS.scale : enemy.archetype.scale;
-          enemy.group.scale.setScalar(targetScale || 1);
-          enemy.bodyMat.emissiveIntensity = enemy.isBoss ? .7 : .28;
-        }
-      }, 95);
-      if (enemy.hp <= 0) this.killEnemy(enemy);
-    }
-    if (hit) {
-      vibrate(32);
-      this.updateUI();
-    }
+    this.rpg?.basicAttack();
   }
 
   killEnemy(enemy) {
+    this.rpg?.spawnBurst(enemy.group.position.clone().add(new THREE.Vector3(0, 1.2, 0)), enemy.archetype?.glow || 0xf8fafc, enemy.isBoss ? 34 : 16, enemy.isBoss ? 1.6 : 1.0);
     this.scene.remove(enemy.group);
     this.enemies = this.enemies.filter((e) => e !== enemy);
 
@@ -571,6 +552,9 @@ class EteriaGame {
     this.state.hp = Math.min(this.state.maxHp, this.state.hp + Math.round(this.state.maxHp * .42));
     vibrate([18, 25, 18]);
     toast('Poción usada.');
+    this.rpg?.showFloatingText(this.player.position.clone().add(new THREE.Vector3(0, 2.5, 0)), '+VIDA', '#86efac', true);
+    this.rpg?.spawnBurst(this.player.position.clone().add(new THREE.Vector3(0, 1.2, 0)), 0x34d399, 12, .7);
+    this.rpg?.renderInventory();
     this.updateUI();
   }
 
@@ -592,6 +576,8 @@ class EteriaGame {
     if (this.finished) return;
     this.state.hp = Math.max(0, this.state.hp - amount);
     vibrate(45);
+    this.rpg?.showFloatingText(this.player.position.clone().add(new THREE.Vector3(0, 2.45, 0)), `-${Math.round(amount)}`, '#fb7185', true);
+    this.rpg?.spawnBurst(this.player.position.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xfb7185, 8, .55);
     this.updateUI();
     if (this.state.hp <= 0) {
       this.state.deaths++;
@@ -631,16 +617,7 @@ class EteriaGame {
     this.heroRig.cape.rotation.x = -.08 + Math.abs(gait) * .08 + (this.dashActive > 0 ? .22 : 0);
     this.heroRig.rune.rotation.z += dt * .7;
 
-    if (this.weaponSocket.userData.swing > 0) {
-      const duration = Math.min(.34, this.currentWeapon().cooldown * .72 + .08);
-      this.weaponSocket.userData.swing -= dt;
-      const p = 1 - this.weaponSocket.userData.swing / duration;
-      this.weaponSocket.rotation.z = -0.55 - Math.sin(p * Math.PI) * 1.85;
-      this.weaponSocket.rotation.x = -.12 - Math.sin(p * Math.PI) * .38;
-    } else {
-      this.weaponSocket.rotation.z = THREE.MathUtils.lerp(this.weaponSocket.rotation.z, -.55, .18);
-      this.weaponSocket.rotation.x = THREE.MathUtils.lerp(this.weaponSocket.rotation.x, -.12, .18);
-    }
+    this.rpg?.updateCombatAnimation(dt, moving);
   }
 
   updateEnemies(dt) {
@@ -656,6 +633,7 @@ class EteriaGame {
         if (d < 1.65 && enemy.cooldown <= 0) {
           const [minCd, maxCd] = enemy.attackCooldown;
           enemy.cooldown = rand(minCd, maxCd);
+          enemy.attackAnim = .34;
           this.takeDamage(enemy.archetype.damage + this.state.level * enemy.archetype.damagePerLevel);
         }
       } else {
@@ -665,6 +643,20 @@ class EteriaGame {
         if (dir.length() > .25) enemy.group.position.addScaledVector(dir.normalize(), enemy.speed * .28 * dt);
       }
       enemy.group.position.y = .04 + Math.sin(this.elapsed * 3 + enemy.phase) * .06;
+      enemy.attackAnim = Math.max(0, (enemy.attackAnim || 0) - dt);
+      const strike = enemy.attackAnim > 0 ? Math.sin((1 - enemy.attackAnim / .34) * Math.PI) : 0;
+      const type = enemy.isBoss ? 'boss' : enemy.archetype.id;
+      if (type === 'shade') enemy.group.rotation.z = strike * .24;
+      else if (type === 'marauder') enemy.group.rotation.z = -strike * .38;
+      else if (type === 'guardian') enemy.group.rotation.x = strike * .32;
+      else if (type === 'boss') {
+        enemy.group.rotation.x = strike * .2;
+        enemy.group.rotation.z = Math.sin(this.elapsed * 1.2) * .04;
+      }
+      if (!enemy.attackAnim) {
+        enemy.group.rotation.x = THREE.MathUtils.lerp(enemy.group.rotation.x, 0, .18);
+        enemy.group.rotation.z = THREE.MathUtils.lerp(enemy.group.rotation.z, 0, .18);
+      }
     }
   }
 
@@ -842,6 +834,7 @@ class EteriaGame {
       this.updatePlayer(dt);
       this.updateEnemies(dt);
       this.updateCrystals(dt);
+      this.rpg?.update(dt);
       this.updatePortal();
       this.updateCamera(dt);
       this.updateAtmosphere();

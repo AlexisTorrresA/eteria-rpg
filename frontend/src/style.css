@@ -133,3 +133,441 @@ button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
   .action-cluster { transform: scale(.82); transform-origin: bottom right; }
   .boss-hud { bottom: 12px; width: min(430px, 46vw); }
 }
+
+
+/* Eteria 3.0 RPG systems */
+.inventory-top {
+  top: calc(max(14px, env(safe-area-inset-top)) + 168px);
+  right: max(20px, env(safe-area-inset-right));
+  font-size: 1rem;
+}
+
+.interact-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 22%;
+  transform: translateX(-50%);
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: rgba(7,16,31,.88);
+  border: 1px solid rgba(94,234,212,.28);
+  color: #dffdfa;
+  font-size: .74rem;
+  font-weight: 800;
+  box-shadow: 0 12px 34px rgba(0,0,0,.28);
+}
+
+.damage-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.damage-number {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-weight: 900;
+  font-size: 1rem;
+  text-shadow: 0 2px 6px rgba(0,0,0,.85);
+  animation: damageFloat .78s ease-out forwards;
+  white-space: nowrap;
+}
+
+.damage-number.critical {
+  font-size: 1.34rem;
+  filter: drop-shadow(0 0 8px currentColor);
+}
+
+@keyframes damageFloat {
+  0% { opacity: 0; transform: translate(-50%, -35%) scale(.72); }
+  16% { opacity: 1; transform: translate(-50%, -55%) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -165%) scale(.96); }
+}
+
+.action-cluster {
+  width: 250px;
+  height: 190px;
+}
+
+.action-btn.attack {
+  width: 86px;
+  height: 86px;
+}
+
+.action-btn.attack small {
+  position: absolute;
+  bottom: 9px;
+  font-size: .48rem;
+  letter-spacing: .09em;
+  color: rgba(255,255,255,.76);
+}
+
+.action-btn.special {
+  right: 92px;
+  bottom: 2px;
+  width: 72px;
+  height: 72px;
+  background: radial-gradient(circle at 35% 25%, rgba(147,51,234,.68), rgba(30,64,175,.7));
+  border-color: rgba(216,180,254,.38);
+}
+
+.action-btn.special span {
+  font-size: 1.25rem;
+}
+
+.action-btn.special small {
+  position: absolute;
+  width: 92px;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: .48rem;
+  color: #e9d5ff;
+  text-shadow: 0 1px 3px #000;
+  white-space: nowrap;
+}
+
+.action-btn.interact {
+  right: 10px;
+  top: 4px;
+  width: 54px;
+  height: 54px;
+  background: rgba(15,118,110,.72);
+  border-color: rgba(153,246,228,.4);
+}
+
+.action-btn.interact span {
+  font-size: 1.25rem;
+}
+
+.action-btn.weapon {
+  left: 22px;
+  top: 20px;
+}
+
+.action-btn.dash {
+  right: 112px;
+  bottom: 92px;
+}
+
+.inventory-panel {
+  position: fixed;
+  z-index: 42;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(920px, 94vw);
+  max-height: min(760px, 90vh);
+  overflow-y: auto;
+  border-radius: 26px;
+  padding: clamp(18px, 3vw, 30px);
+  pointer-events: auto;
+  background: rgba(6,14,28,.95);
+}
+
+.inventory-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.inventory-header h2 {
+  margin: 2px 0 0;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+}
+
+.panel-close,
+.dialogue-x {
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+  color: #e2e8f0;
+  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  font-size: 1.35rem;
+  cursor: pointer;
+}
+
+.inventory-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.inventory-stats div {
+  background: rgba(255,255,255,.055);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  padding: 11px;
+  text-align: center;
+}
+
+.inventory-stats b {
+  display: block;
+  font-size: 1.15rem;
+  color: #fde68a;
+}
+
+.inventory-stats span {
+  display: block;
+  margin-top: 2px;
+  font-size: .55rem;
+  letter-spacing: .12em;
+  color: #94a3b8;
+}
+
+.inventory-section {
+  margin-top: 16px;
+}
+
+.inventory-section h3 {
+  margin: 0 0 9px;
+  font-size: .82rem;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: #bfdbfe;
+}
+
+.weapon-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 9px;
+}
+
+.weapon-card {
+  display: grid;
+  grid-template-columns: 46px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 82px;
+  padding: 11px 12px;
+  text-align: left;
+  color: #e5eefb;
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 15px;
+  cursor: pointer;
+}
+
+.weapon-card.equipped {
+  border-color: rgba(94,234,212,.5);
+  box-shadow: inset 0 0 24px rgba(94,234,212,.08);
+}
+
+.weapon-card.locked {
+  opacity: .38;
+  filter: grayscale(.6);
+  cursor: default;
+}
+
+.weapon-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(139,92,246,.16);
+  font-size: 1.4rem;
+}
+
+.weapon-copy {
+  min-width: 0;
+}
+
+.weapon-copy strong,
+.weapon-copy small,
+.weapon-copy em {
+  display: block;
+}
+
+.weapon-copy strong {
+  font-size: .82rem;
+}
+
+.weapon-copy small {
+  margin-top: 4px;
+  color: #94a3b8;
+  font-size: .62rem;
+}
+
+.weapon-copy em {
+  margin-top: 3px;
+  color: #c4b5fd;
+  font-size: .6rem;
+  font-style: normal;
+}
+
+.weapon-card b {
+  font-size: .52rem;
+  letter-spacing: .08em;
+  color: #67e8f9;
+}
+
+.material-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0,1fr));
+  gap: 8px;
+}
+
+.material-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 62px;
+  padding: 9px;
+  border-radius: 13px;
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.material-card > span {
+  font-size: 1.3rem;
+}
+
+.material-card strong {
+  display: block;
+  font-size: .68rem;
+}
+
+.material-card small {
+  color: #fde68a;
+}
+
+.inventory-hint {
+  margin-top: 16px;
+  font-size: .65rem;
+  color: #64748b;
+  text-align: center;
+}
+
+.dialogue-box {
+  position: fixed;
+  z-index: 44;
+  left: 50%;
+  bottom: max(22px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(720px, 92vw);
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 20px;
+  background: rgba(5,13,27,.94);
+  pointer-events: auto;
+}
+
+.dialogue-portrait {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: radial-gradient(circle at 40% 30%, rgba(103,232,249,.38), rgba(76,29,149,.62));
+  border: 1px solid rgba(165,243,252,.25);
+  font-size: 1.8rem;
+  color: #cffafe;
+}
+
+.dialogue-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dialogue-heading strong {
+  display: block;
+  color: #fff;
+}
+
+.dialogue-heading span {
+  display: block;
+  color: #94a3b8;
+  font-size: .65rem;
+}
+
+.dialogue-copy p {
+  margin: 10px 0 12px;
+  min-height: 44px;
+  line-height: 1.5;
+  color: #dbeafe;
+  font-size: .86rem;
+}
+
+.dialogue-next {
+  border: 0;
+  border-radius: 11px;
+  padding: 9px 14px;
+  background: linear-gradient(135deg, #5eead4, #93c5fd);
+  color: #07111f;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+@media (orientation: portrait) {
+  .inventory-top {
+    top: 154px;
+  }
+
+  .inventory-panel {
+    width: 95vw;
+    max-height: 86vh;
+    padding: 16px;
+  }
+
+  .weapon-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .material-grid {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
+
+  .inventory-stats {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
+
+  .dialogue-box {
+    bottom: 168px;
+    width: 94vw;
+    grid-template-columns: 52px 1fr;
+  }
+
+  .dialogue-portrait {
+    width: 48px;
+    height: 48px;
+    font-size: 1.35rem;
+  }
+
+  .interact-prompt {
+    bottom: 184px;
+  }
+
+  .action-cluster {
+    transform: scale(.78);
+  }
+}
+
+@media (max-height: 520px) {
+  .inventory-top {
+    top: 154px;
+  }
+
+  .dialogue-box {
+    bottom: 10px;
+    width: min(650px, 72vw);
+  }
+
+  .interact-prompt {
+    bottom: 85px;
+  }
+
+  .action-cluster {
+    transform: scale(.72);
+  }
+}

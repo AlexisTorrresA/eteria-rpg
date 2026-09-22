@@ -30,7 +30,7 @@
           <p class="story">Hace siglos, el Corazón del Eclipse mantenía en equilibrio la luz y la sombra. Al romperse, sus fragmentos corrompieron a los antiguos guardianes. Eres un Viajero del Umbral: recupera los fragmentos, descubre quién despertó a Vharok y abre el camino hacia las regiones perdidas de Eteria.</p>
           <button id="start-btn" class="primary-btn">Nueva aventura</button>
           <button id="continue-btn" class="secondary-btn hidden">Continuar</button>
-          <div class="menu-hint">Móvil: joystick + combate + cambio de arma · PC: WASD · Espacio atacar · Shift dash · R cambiar arma</div>
+          <div class="menu-hint">PC: WASD · Espacio combo · E especial · F interactuar · I inventario · R cambiar arma · Shift dash</div>
         </div>
       </div>
 
@@ -61,8 +61,11 @@
         <canvas id="minimap" width="150" height="150" aria-label="Minimapa"></canvas>
 
         <button id="pause-btn" class="icon-btn top-button" aria-label="Pausar">Ⅱ</button>
+        <button id="inventory-btn" class="icon-btn inventory-top" aria-label="Inventario">🎒</button>
 
         <div id="toast" class="toast"></div>
+        <div id="interact-prompt" class="interact-prompt hidden">F · Interactuar</div>
+        <div id="damage-layer" class="damage-layer"></div>
 
         <div id="mobile-controls">
           <div id="joystick" class="joystick">
@@ -73,10 +76,46 @@
             <button id="potion-btn" class="action-btn small potion" aria-label="Usar poción"><span>✚</span><b id="potion-count">3</b></button>
             <button id="weapon-btn" class="action-btn weapon" aria-label="Cambiar arma"><span>↻</span></button>
             <button id="dash-btn" class="action-btn dash" aria-label="Dash"><span>➤</span></button>
-            <button id="attack-btn" class="action-btn attack" aria-label="Atacar"><span>⚔</span></button>
+            <button id="special-btn" class="action-btn special" aria-label="Ataque especial">
+              <span id="special-cooldown">◒</span><small id="special-name">Arco de Éter</small>
+            </button>
+            <button id="interact-btn" class="action-btn interact hidden" aria-label="Interactuar"><span>✦</span></button>
+            <button id="attack-btn" class="action-btn attack" aria-label="Atacar"><span>⚔</span><small>COMBO</small></button>
           </div>
         </div>
       </div>
+
+      <section id="inventory-panel" class="inventory-panel glass hidden">
+        <header class="inventory-header">
+          <div>
+            <div class="eyebrow">INVENTARIO DEL VIAJERO</div>
+            <h2>Equipo y reliquias</h2>
+          </div>
+          <button id="inventory-close" class="panel-close" aria-label="Cerrar inventario">×</button>
+        </header>
+        <div id="inventory-stats" class="inventory-stats"></div>
+        <div class="inventory-section">
+          <h3>Armas</h3>
+          <div id="inventory-weapons" class="weapon-grid"></div>
+        </div>
+        <div class="inventory-section">
+          <h3>Objetos y materiales</h3>
+          <div id="inventory-materials" class="material-grid"></div>
+        </div>
+        <div class="inventory-hint">Toca un arma desbloqueada para equiparla. Los cofres quedan abiertos al guardar la partida.</div>
+      </section>
+
+      <section id="dialogue-box" class="dialogue-box glass hidden">
+        <div class="dialogue-portrait">✦</div>
+        <div class="dialogue-copy">
+          <div class="dialogue-heading">
+            <div><strong id="dialogue-name">Liora</strong><span id="dialogue-role">Guardiana</span></div>
+            <button id="dialogue-close" class="dialogue-x" aria-label="Cerrar diálogo">×</button>
+          </div>
+          <p id="dialogue-text"></p>
+          <button id="dialogue-next" class="dialogue-next">Continuar</button>
+        </div>
+      </section>
 
       <div id="pause-screen" class="screen">
         <div class="menu-card glass pause-card">
