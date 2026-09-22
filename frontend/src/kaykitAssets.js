@@ -233,7 +233,8 @@ export class KayKitHeroController {
     this.driver = null;
     this.weapon = null;
     this.weaponObjects = [];
-    this.loadToken = 0;
+    this.variantToken = 0;
+    this.weaponToken = 0;
     this.equipment = {};
     this.rightHand = null;
     this.leftHand = null;
@@ -246,15 +247,14 @@ export class KayKitHeroController {
     await this.switchVariant(variantForEquipment(this.equipment));
     this.ready = true;
     if (this.game.proceduralHeroVisual) this.game.proceduralHeroVisual.visible = false;
-    await this.setWeapon(weapon);
     return this;
   }
 
   async switchVariant(variant) {
     if (this.variant === variant && this.model) return;
-    const token = ++this.loadToken;
+    const token = ++this.variantToken;
     const gltf = await loadGltf(HERO_VARIANTS[variant] || HERO_VARIANTS.rogue);
-    if (token !== this.loadToken) return;
+    if (token !== this.variantToken) return;
 
     const model = cloneSkeleton(gltf.scene);
     model.name = `KayKitHero_${variant}`;
@@ -285,14 +285,14 @@ export class KayKitHeroController {
   async setWeapon(weapon) {
     if (!weapon || !this.model) return;
     this.weapon = weapon;
-    const token = ++this.loadToken;
+    const token = ++this.weaponToken;
     this.clearWeapons();
 
     try {
       const url = WEAPON_ASSETS[weapon.id];
       if (url) {
         const right = await cloneWeaponAsset(url);
-        if (token !== this.loadToken) return;
+        if (token !== this.weaponToken) return;
         const t = weaponTransform(weapon.id);
         right.scale.setScalar(t.scale);
         right.rotation.set(...t.rot);
