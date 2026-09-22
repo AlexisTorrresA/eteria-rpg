@@ -35,7 +35,8 @@ const NPC_PRESETS = {
 };
 
 const ASSET_URL = (name) => `${BASE}/characters/${name}.glb`;
-const LOCOMOTION_ANIMATION_URL = `${BASE}/animations/UAL1_Standard.gltf`;
+const IDLE_ANIMATION_URL = `${BASE}/animations/genesara_idle.glb`;
+const LOCOMOTION_ANIMATION_URL = `${BASE}/animations/UAL1_Standard.glb`;
 const COMBAT_ANIMATION_URL = `${BASE}/animations/UAL2_Standard.glb`;
 
 const semanticPatterns = {
@@ -120,6 +121,7 @@ function selectClip(clips, semantic, used = new Set()) {
 class SyncedAnimationDriver {
   constructor(roots, libraries = {}) {
     this.roots = roots;
+    this.idleClips = libraries.idle || [];
     this.locomotionClips = libraries.locomotion || [];
     this.combatClips = libraries.combat || [];
     this.mixers = roots.map((root) => new THREE.AnimationMixer(root));
@@ -133,10 +135,17 @@ class SyncedAnimationDriver {
     const usedAttacks = new Set();
     for (const semantic of ['idle', 'walk', 'run', 'attack1', 'attack2', 'attack3', 'heavy', 'dash']) {
       const attack = semantic.startsWith('attack') || semantic === 'heavy';
-      const primary = attack ? this.combatClips : this.locomotionClips;
-      const secondary = attack ? this.locomotionClips : this.combatClips;
       const used = attack ? usedAttacks : new Set();
-      const clip = selectClip(primary, semantic, used) || selectClip(secondary, semantic, used);
+      const pools = semantic === 'idle'
+        ? [this.idleClips, this.locomotionClips, this.combatClips]
+        : attack
+          ? [this.combatClips, this.locomotionClips, this.idleClips]
+          : [this.locomotionClips, this.idleClips, this.combatClips];
+      let clip = null;
+      for (const pool of pools) {
+        clip = selectClip(pool, semantic, used);
+        if (clip) break;
+      }
       if (!clip) {
         console.warn(`[eteria] Missing Quaternius animation: ${semantic}`);
         continue;
@@ -153,6 +162,24 @@ class SyncedAnimationDriver {
       });
       this.actions.set(semantic, actions);
     }
+  }
+
+  has(name) {
+    return this.actions.has(name);
+  }
+
+  forceLoop(name, speed = 1) {
+    const next = this.actions.get(name);
+    if (!next?.length) return false;
+    for (const semantic of ['idle', 'walk', 'run']) {
+      if (semantic === name) continue;
+      this.actions.get(semantic)?.forEach((action) => action.stop());
+    }
+    next.forEach((action) => {
+      action.reset().setEffectiveWeight(1).setEffectiveTimeScale(speed).play();
+    });
+    this.current = name;
+    return true;
   }
 
   loop(name, fade = .16, speed = 1) {
@@ -204,6 +231,113 @@ class SyncedAnimationDriver {
 
   dispose() {
     this.mixers.forEach((mixer) => mixer.stopAllAction());
+  }
+}
+
+
+class ProceduralLocomotionFallback {
+  constructor(roots, visualRoot) {
+    this.visualRoot = visualRoot;
+    this.phase = 0;
+    this.baseReady = false;
+    this.rigs = roots.map((root) => {
+      const nodes = {};
+      for (const name of [
+        'pelvis', 'spine_01',
+        'upperarm_l', 'upperarm_r',
+        'thigh_l', 'thigh_r',
+        'calf_l', 'calf_r',
+        'foot_l', 'foot_r',
+      ]) nodes[name] = findNode(root, [name]);
+      return { nodes, base: {} };
+    });
+  }
+
+  captureCurrentBase() {
+    for (const rig of this.rigs) {
+      rig.base = {};
+      for (const [name, node] of Object.entries(rig.nodes)) {
+        if (node) rig.base[name] = node.quaternion.clone();
+      }
+    }
+    this.baseReady = true;
+  }
+
+  captureLegState() {
+    const rig = this.rigs[0];
+    if (!rig) return null;
+    const left = rig.nodes.thigh_l?.quaternion?.clone();
+    const right = rig.nodes.thigh_r?.quaternion?.clone();
+    return left && right ? { left, right } : null;
+  }
+
+  legDeltaFrom(state) {
+    const rig = this.rigs[0];
+    if (!state || !rig?.nodes.thigh_l || !rig?.nodes.thigh_r) return 0;
+    return Math.max(
+      state.left.angleTo(rig.nodes.thigh_l.quaternion),
+      state.right.angleTo(rig.nodes.thigh_r.quaternion),
+    );
+  }
+
+  targetQuaternion(base, x = 0, y = 0, z = 0) {
+    const delta = new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z, 'XYZ'));
+    return base.clone().multiply(delta);
+  }
+
+  apply(rig, name, x, y, z, alpha) {
+    const node = rig.nodes[name];
+    const base = rig.base[name];
+    if (!node || !base) return;
+    node.quaternion.slerp(this.targetQuaternion(base, x, y, z), alpha);
+  }
+
+  update(dt, moving, strength = 1, dashing = false) {
+    if (!this.baseReady) this.captureCurrentBase();
+    const alpha = 1 - Math.exp(-18 * dt);
+
+    if (!moving) {
+      this.reset(dt);
+      return;
+    }
+
+    const intensity = THREE.MathUtils.clamp(strength, .25, 1);
+    const cadence = dashing ? 10.8 : THREE.MathUtils.lerp(5.4, 8.2, intensity);
+    this.phase += dt * cadence;
+
+    const swing = Math.sin(this.phase);
+    const opposite = -swing;
+    const stride = (dashing ? .72 : .52) * THREE.MathUtils.lerp(.65, 1, intensity);
+    const armSwing = (dashing ? .32 : .22) * THREE.MathUtils.lerp(.6, 1, intensity);
+    const kneeL = Math.max(0, -swing) * (dashing ? .78 : .58);
+    const kneeR = Math.max(0, swing) * (dashing ? .78 : .58);
+
+    for (const rig of this.rigs) {
+      this.apply(rig, 'thigh_l', swing * stride, 0, 0, alpha);
+      this.apply(rig, 'thigh_r', opposite * stride, 0, 0, alpha);
+      this.apply(rig, 'calf_l', -kneeL, 0, 0, alpha);
+      this.apply(rig, 'calf_r', -kneeR, 0, 0, alpha);
+      this.apply(rig, 'foot_l', kneeL * .34, 0, 0, alpha);
+      this.apply(rig, 'foot_r', kneeR * .34, 0, 0, alpha);
+      this.apply(rig, 'upperarm_l', 0, -swing * armSwing, 0, alpha);
+      this.apply(rig, 'upperarm_r', 0, swing * armSwing, 0, alpha);
+      this.apply(rig, 'spine_01', dashing ? .055 : .025, -swing * .045, 0, alpha);
+    }
+
+    const bob = Math.abs(Math.sin(this.phase * 2)) * (dashing ? .045 : .028);
+    this.visualRoot.position.y = THREE.MathUtils.damp(this.visualRoot.position.y, bob, 14, dt);
+  }
+
+  reset(dt) {
+    if (!this.baseReady) return;
+    const alpha = 1 - Math.exp(-12 * dt);
+    for (const rig of this.rigs) {
+      for (const [name, node] of Object.entries(rig.nodes)) {
+        const base = rig.base[name];
+        if (node && base) node.quaternion.slerp(base, alpha);
+      }
+    }
+    this.visualRoot.position.y = THREE.MathUtils.damp(this.visualRoot.position.y, 0, 14, dt);
   }
 }
 
@@ -277,6 +411,10 @@ export class QuaterniusHeroController {
     this.leftHand = null;
     this.presetId = null;
     this.swapToken = 0;
+    this.gaitFallback = null;
+    this.proceduralLocomotion = false;
+    this.motionProbeTime = 0;
+    this.motionProbeState = null;
   }
 
   async load(weapon, equipment = {}) {
@@ -292,8 +430,9 @@ export class QuaterniusHeroController {
     if (!initial && presetId === this.presetId) return;
     const token = ++this.swapToken;
     const preset = HERO_PRESETS[presetId] || HERO_PRESETS.aether;
-    const [layers, locomotionGltf, combatGltf] = await Promise.all([
+    const [layers, idleGltf, locomotionGltf, combatGltf] = await Promise.all([
       buildCharacterLayers(preset, 2.52),
+      loadGltf(IDLE_ANIMATION_URL),
       loadGltf(LOCOMOTION_ANIMATION_URL),
       loadGltf(COMBAT_ANIMATION_URL),
     ]);
@@ -304,10 +443,18 @@ export class QuaterniusHeroController {
     this.layers = layers;
     layers.forEach((layer) => this.root.add(layer));
     this.driver = new SyncedAnimationDriver(layers, {
+      idle: idleGltf.animations || [],
       locomotion: locomotionGltf.animations || [],
       combat: combatGltf.animations || [],
     });
     this.driver.loop('idle', 0, 1);
+    // Apply frame zero immediately so the model never flashes or remains in bind/T-pose.
+    this.driver.update(0);
+    this.gaitFallback = new ProceduralLocomotionFallback(layers, this.root);
+    this.gaitFallback.captureCurrentBase();
+    this.proceduralLocomotion = false;
+    this.motionProbeTime = 0;
+    this.motionProbeState = null;
     this.presetId = presetId;
     this.rightHand = findNode(layers[0], ['hand_r', 'righthand']);
     this.leftHand = findNode(layers[0], ['hand_l', 'lefthand']);
@@ -342,6 +489,17 @@ export class QuaterniusHeroController {
     await this.switchPreset(presetForEquipment(equipment));
   }
 
+  enableProceduralLocomotion(reason = 'binding') {
+    if (this.proceduralLocomotion || !this.driver || !this.gaitFallback) return;
+    this.proceduralLocomotion = true;
+    this.driver.forceLoop('idle', 1);
+    this.driver.update(0);
+    this.gaitFallback.captureCurrentBase();
+    this.motionProbeTime = 0;
+    this.motionProbeState = null;
+    console.warn(`[eteria] Quaternius procedural gait enabled (${reason}).`);
+  }
+
   playAttack(step = 0) {
     const names = ['attack1', 'attack2', 'attack3', 'heavy'];
     const speed = this.weapon?.id === 'rift-daggers' ? 1.22 : ['ember-axe', 'sun-hammer'].includes(this.weapon?.id) ? .86 : 1.04;
@@ -367,14 +525,62 @@ export class QuaterniusHeroController {
       scale = 1.25;
     } else if (moving) {
       loop = strength > .48 ? 'run' : 'walk';
-      scale = loop === 'run' ? THREE.MathUtils.lerp(.9, 1.14, strength) : THREE.MathUtils.lerp(.72, 1.05, strength);
+      scale = loop === 'run'
+        ? THREE.MathUtils.lerp(.9, 1.14, strength)
+        : THREE.MathUtils.lerp(.72, 1.05, strength);
     }
-    if (!this.driver.oneShot) this.driver.loop(loop, loop === 'idle' ? .22 : .15, scale);
+
+    if (!this.driver.oneShot) {
+      if (this.proceduralLocomotion) {
+        if (this.driver.current !== 'idle') this.driver.forceLoop('idle', 1);
+      } else {
+        this.driver.loop(loop, loop === 'idle' ? .22 : .15, scale);
+      }
+    }
+
     this.driver.update(dt);
+
+    if (this.driver.oneShot) {
+      this.motionProbeTime = 0;
+      this.motionProbeState = null;
+      return;
+    }
+
+    if (!moving) {
+      this.motionProbeTime = 0;
+      this.motionProbeState = null;
+      if (this.proceduralLocomotion) this.gaitFallback?.reset(dt);
+      return;
+    }
+
+    if (!this.proceduralLocomotion) {
+      if (!this.driver.has(loop)) {
+        this.enableProceduralLocomotion(`missing-${loop}`);
+      } else if (!this.motionProbeState) {
+        this.motionProbeState = this.gaitFallback?.captureLegState() || null;
+        this.motionProbeTime = 0;
+      } else {
+        this.motionProbeTime += dt;
+        if (this.motionProbeTime >= .34) {
+          const delta = this.gaitFallback?.legDeltaFrom(this.motionProbeState) || 0;
+          if (delta < .025) this.enableProceduralLocomotion(`inactive-${loop}`);
+          else {
+            this.motionProbeTime = 0;
+            this.motionProbeState = null;
+          }
+        }
+      }
+    }
+
+    if (this.proceduralLocomotion) {
+      this.gaitFallback?.update(dt, true, strength, dashing);
+    }
   }
 
   dispose() {
     this.driver?.dispose();
+    if (this.root) this.root.position.y = 0;
+    this.gaitFallback = null;
     this.root.removeFromParent();
     this.ready = false;
   }
@@ -397,9 +603,9 @@ class QuaterniusNPCController {
     const npc = this.game.rpg?.npcs?.find((candidate) => candidate.id === this.id);
     if (!npc?.root) throw new Error(`Interactive NPC anchor not found: ${this.id}`);
 
-    const [layers, locomotionGltf] = await Promise.all([
+    const [layers, idleGltf] = await Promise.all([
       buildCharacterLayers(this.config, 2.42),
-      loadGltf(LOCOMOTION_ANIMATION_URL),
+      loadGltf(IDLE_ANIMATION_URL),
     ]);
 
     this.anchor = npc.root;
@@ -413,10 +619,12 @@ class QuaterniusNPCController {
     npc.root.add(this.root);
 
     this.driver = new SyncedAnimationDriver(layers, {
-      locomotion: locomotionGltf.animations || [],
+      idle: idleGltf.animations || [],
+      locomotion: [],
       combat: [],
     });
     this.driver.loop('idle', 0, .88);
+    this.driver.update(0);
     this.ready = true;
     return this;
   }
