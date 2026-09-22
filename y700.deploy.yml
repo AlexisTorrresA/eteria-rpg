@@ -1,0 +1,26 @@
+version: 1
+name: eteria-rpg
+image: ghcr.io/alexistorrresa/eteria-rpg:main
+container_name: y700-eteria-rpg
+container_port: 10000
+command:
+  - uvicorn
+  - backend.main:app
+  - --host
+  - "0.0.0.0"
+  - --port
+  - "10000"
+public:
+  enabled: true
+  subdomain: eteria-rpg
+healthcheck:
+  path: /api/health
+database:
+  postgres: false
+  name: eteria_rpg
+secrets:
+  required: []
+  optional: []
+resources:
+  memory: 1g
+  cpus: 1.0
