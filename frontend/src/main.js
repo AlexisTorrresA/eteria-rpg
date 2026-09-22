@@ -3,6 +3,8 @@ import './style.css';
 import { WEAPONS, ENEMY_ARCHETYPES, BOSS, STORY, weaponUnlocked } from './gameData.js';
 import { createHeroModel, createEnemyModel, createWeaponModel } from './models.js';
 import { RPGSystems } from './rpgSystems.js';
+import { ProgressionSystems } from './progressionSystems.js';
+import { WorldExpansion } from './worldExpansion.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game-canvas');
@@ -19,7 +21,7 @@ const mapCtx = minimap.getContext('2d');
 const SAVE_KEY = 'eteria-rpg-save-v1';
 const GOALS = { kills: 8, crystals: 6 };
 const WORLD_SIZE = 84;
-const HALF_WORLD = WORLD_SIZE / 2 - 2;
+const HALF_WORLD = 148;
 
 const UI = {
   level: $('level-label'), gold: $('gold-label'), healthBar: $('health-bar'), healthText: $('health-text'), xpBar: $('xp-bar'),
@@ -95,6 +97,8 @@ class EteriaGame {
     this.createWorld();
     this.createPlayer();
     this.rpg = new RPGSystems(this, { toast, vibrate });
+    this.progression = new ProgressionSystems(this, { toast, vibrate });
+    this.world = new WorldExpansion(this, { toast, vibrate });
     this.bindInput();
     this.onResize();
     addEventListener('resize', () => this.onResize());
@@ -382,6 +386,9 @@ class EteriaGame {
     this.unlockedWeaponIds = new Set();
     this.storyKey = 'intro';
     this.rpg?.syncState();
+    this.progression?.ensureState();
+    this.progression?.renderAll();
+    this.world?.ensureState();
     localStorage.removeItem(SAVE_KEY);
     this.player.position.set(0,0,10);
     this.resetWorldEntities();
@@ -398,6 +405,9 @@ class EteriaGame {
       this.defaultState();
       Object.assign(this.state, saved?.state || {});
       this.rpg?.syncState();
+      this.progression?.ensureState();
+      this.progression?.renderAll();
+      this.world?.ensureState();
       this.storyKey = this.state.chapter || 'intro';
       this.updateStoryProgress();
       this.player.position.set(this.state.x || 0, 0, this.state.z || 10);
@@ -437,7 +447,7 @@ class EteriaGame {
     if (!this.active) return;
     this.state.x = Number(this.player.position.x.toFixed(2));
     this.state.z = Number(this.player.position.z.toFixed(2));
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 3, state: this.state, savedAt: Date.now() }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 4, state: this.state, savedAt: Date.now() }));
     continueBtn.classList.remove('hidden');
   }
 
@@ -460,6 +470,8 @@ class EteriaGame {
       if (e.code === 'KeyE') this.rpg?.specialAttack();
       if (e.code === 'KeyF') this.rpg?.interact();
       if (e.code === 'KeyI') this.rpg?.toggleInventory();
+      if (e.code === 'KeyC') this.progression?.togglePanel('character');
+      if (e.code === 'KeyJ') this.progression?.togglePanel('quests');
       if (e.code.startsWith('Digit')) {
         const slot = Number(e.code.slice(5)) - 1;
         const available = this.updateWeaponUnlocks(false);
@@ -468,6 +480,7 @@ class EteriaGame {
       if (e.code === 'Escape') {
         if (this.rpg?.inventoryOpen) this.rpg.closeInventory();
         else if (this.rpg?.dialogueOpen) this.rpg.closeDialogue();
+        else if (this.progression?.isModalOpen()) this.progression.closePanels();
         else this.paused ? this.resume() : this.pause();
       }
     });
@@ -514,7 +527,8 @@ class EteriaGame {
       this.gainXp(BOSS.xp);
       this.updateWeaponUnlocks(true);
       this.storyKey = 'finale';
-      toast('Vharok ha caído. El Portal del Eclipse está abierto.');
+      this.progression?.checkQuestRewards();
+      toast('Vharok ha caído. El portal conduce ahora a las Tierras de Ceniza.');
       this.updateUI();
       this.checkQuest();
       return;
@@ -522,6 +536,7 @@ class EteriaGame {
 
     const archetype = enemy.archetype;
     this.state.kills += 1;
+    this.progression?.recordKill(archetype.id);
     this.state.gold += Math.round(rand(archetype.gold[0], archetype.gold[1]));
     if (Math.random() < .2) {
       this.state.potions++;
@@ -568,12 +583,15 @@ class EteriaGame {
       this.state.hp = this.state.maxHp;
       this.state.potions++;
       toast(`¡Nivel ${this.state.level}! Vida, daño y arsenal mejorados.`);
+      this.progression?.onLevelUp();
+      this.state.hp = this.state.maxHp;
       this.updateWeaponUnlocks(true);
     }
   }
 
   takeDamage(amount) {
     if (this.finished) return;
+    amount = this.progression?.incomingDamage(amount) ?? amount;
     this.state.hp = Math.max(0, this.state.hp - amount);
     vibrate(45);
     this.rpg?.showFloatingText(this.player.position.clone().add(new THREE.Vector3(0, 2.45, 0)), `-${Math.round(amount)}`, '#fb7185', true);
@@ -622,9 +640,20 @@ class EteriaGame {
 
   updateEnemies(dt) {
     for (const enemy of this.enemies) {
-      enemy.cooldown -= dt;
       const toPlayer = this.player.position.clone().sub(enemy.group.position);
       const d = toPlayer.length();
+
+      if (enemy.isBoss) {
+        this.world?.updateBoss(enemy, dt, toPlayer, d);
+        continue;
+      }
+
+      if (enemy.archetype.ranged) {
+        this.world?.updateRangedEnemy(enemy, dt, toPlayer, d);
+        continue;
+      }
+
+      enemy.cooldown -= dt;
       let dir;
       if (d < 15) {
         dir = toPlayer.setY(0).normalize();
@@ -645,14 +674,10 @@ class EteriaGame {
       enemy.group.position.y = .04 + Math.sin(this.elapsed * 3 + enemy.phase) * .06;
       enemy.attackAnim = Math.max(0, (enemy.attackAnim || 0) - dt);
       const strike = enemy.attackAnim > 0 ? Math.sin((1 - enemy.attackAnim / .34) * Math.PI) : 0;
-      const type = enemy.isBoss ? 'boss' : enemy.archetype.id;
-      if (type === 'shade') enemy.group.rotation.z = strike * .24;
+      const type = enemy.archetype.id;
+      if (type === 'shade' || type === 'ashHound') enemy.group.rotation.z = strike * .24;
       else if (type === 'marauder') enemy.group.rotation.z = -strike * .38;
       else if (type === 'guardian') enemy.group.rotation.x = strike * .32;
-      else if (type === 'boss') {
-        enemy.group.rotation.x = strike * .2;
-        enemy.group.rotation.z = Math.sin(this.elapsed * 1.2) * .04;
-      }
       if (!enemy.attackAnim) {
         enemy.group.rotation.x = THREE.MathUtils.lerp(enemy.group.rotation.x, 0, .18);
         enemy.group.rotation.z = THREE.MathUtils.lerp(enemy.group.rotation.z, 0, .18);
@@ -690,7 +715,8 @@ class EteriaGame {
 
   updateStoryProgress() {
     const previous = this.storyKey;
-    if (this.state.bossDefeated) this.storyKey = 'finale';
+    if (this.state.currentRegion === 'ashen-wastes') this.storyKey = 'wastes';
+    else if (this.state.bossDefeated) this.storyKey = 'finale';
     else if (this.boss || this.isBossReady()) this.storyKey = 'boss';
     else if (this.state.kills >= 5 || this.state.crystals >= 4) this.storyKey = 'truth';
     else if (this.state.kills >= 2 || this.state.crystals >= 2) this.storyKey = 'shadows';
@@ -717,7 +743,11 @@ class EteriaGame {
 
   updatePortal() {
     if (!this.isPortalUnlocked()) return;
-    if (dist2D(this.player.position, this.portal.position) < 2.3) this.win();
+    if (this.state.currentRegion !== 'ashen-wastes' && dist2D(this.player.position, this.portal.position) < 2.3) {
+      this.world?.enterAshenWastes();
+      this.storyKey = 'wastes';
+      this.updateUI();
+    }
   }
 
   win() {
@@ -835,6 +865,8 @@ class EteriaGame {
       this.updateEnemies(dt);
       this.updateCrystals(dt);
       this.rpg?.update(dt);
+      this.progression?.update(dt);
+      this.world?.update(dt);
       this.updatePortal();
       this.updateCamera(dt);
       this.updateAtmosphere();
