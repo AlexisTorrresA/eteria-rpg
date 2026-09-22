@@ -11,7 +11,7 @@
     "android:sync": "npm run build && cap sync android",
     "android:open": "cap open android",
     "generate:hero": "node scripts/generate-hero-gltf.mjs",
-    "fetch:assets": "node scripts/fetch-kaykit-assets.mjs && node scripts/fetch-quaternius-assets.mjs"
+    "fetch:assets": "node scripts/fetch-kaykit-assets.mjs && node scripts/fetch-quaternius-assets.mjs && node scripts/fetch-environment-assets.mjs"
   },
   "dependencies": {
     "@capacitor/core": "8.5.0",

@@ -9,6 +9,7 @@ import { attachRiggedHero } from './heroAsset.js';
 import { attachQuaterniusHero, attachQuaterniusNPC } from './quaterniusAssets.js';
 import { attachKayKitHero, attachKayKitEnemy } from './kaykitAssets.js';
 import { DynamicCameraController } from './cameraController.js';
+import { EnvironmentWorld } from './environmentWorld.js';
 
 const query = new URLSearchParams(location.search);
 const RIGGED_HERO_EXPERIMENTAL = query.get('rig') === '1';
@@ -29,7 +30,7 @@ const mapCtx = minimap.getContext('2d');
 
 const SAVE_KEY = 'eteria-rpg-save-v1';
 const GOALS = { kills: 8, crystals: 6 };
-const WORLD_SIZE = 84;
+const WORLD_SIZE = 128;
 const HALF_WORLD = 148;
 
 const UI = {
@@ -78,9 +79,9 @@ class EteriaGame {
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x16243a);
-    this.scene.fog = new THREE.FogExp2(0x16243a, 0.018);
+    this.scene.fog = new THREE.FogExp2(0x16243a, 0.012);
 
-    this.camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 180);
+    this.camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 260);
     this.camera.position.set(0, 6.4, 9.2);
 
     this.clock = new THREE.Clock();
@@ -140,10 +141,10 @@ class EteriaGame {
     sun.position.set(-18, 28, 14);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.camera.left = -32;
-    sun.shadow.camera.right = 32;
-    sun.shadow.camera.top = 32;
-    sun.shadow.camera.bottom = -32;
+    sun.shadow.camera.left = -46;
+    sun.shadow.camera.right = 46;
+    sun.shadow.camera.top = 46;
+    sun.shadow.camera.bottom = -46;
     sun.shadow.bias = -0.00028;
     sun.shadow.normalBias = 0.025;
     sun.shadow.radius = 2;
@@ -160,48 +161,8 @@ class EteriaGame {
     this.scene.add(rim);
     this.heroRim = rim;
 
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x214f38, roughness: 0.93, metalness: 0.01 });
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 1, 1), groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    this.scene.add(ground);
-
-    const path = new THREE.Mesh(
-      new THREE.PlaneGeometry(8, 72),
-      new THREE.MeshStandardMaterial({ color: 0x706b58, roughness: .94, metalness: .01 })
-    );
-    path.rotation.x = -Math.PI / 2;
-    path.rotation.z = -0.22;
-    path.position.y = 0.012;
-    this.scene.add(path);
-
-    const water = new THREE.Mesh(
-      new THREE.CircleGeometry(7.5, 40),
-      new THREE.MeshStandardMaterial({ color: 0x164e63, roughness: 0.25, metalness: 0.25, transparent: true, opacity: 0.82 })
-    );
-    water.rotation.x = -Math.PI / 2;
-    water.position.set(-23, 0.025, -22);
-    this.scene.add(water);
-    this.decorAnimations.push((t) => { water.material.opacity = 0.76 + Math.sin(t * 1.4) * 0.06; });
-
-    for (let i = 0; i < 34; i++) {
-      let x = rand(-38, 38), z = rand(-38, 38);
-      if (Math.abs(x) < 6 || (x < -14 && z < -12)) { i--; continue; }
-      this.scene.add(this.makeTree(x, z, rand(0.75, 1.3)));
-    }
-
-    for (let i = 0; i < 24; i++) {
-      const rock = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(rand(.35, .9), 0),
-        new THREE.MeshStandardMaterial({ color: i % 3 ? 0x4b5563 : 0x64748b, roughness: 1 })
-      );
-      rock.scale.y = rand(.65, 1.4);
-      rock.position.set(rand(-39, 39), .28, rand(-39, 39));
-      rock.rotation.set(rand(0, 2), rand(0, 2), rand(0, 2));
-      rock.castShadow = true;
-      rock.receiveShadow = true;
-      this.scene.add(rock);
-    }
+    this.environment = new EnvironmentWorld(this);
+    this.environment.build();
 
     this.createRuins();
     this.createFireflies();
@@ -240,12 +201,12 @@ class EteriaGame {
   }
 
   createFireflies() {
-    const count = 90;
+    const count = 130;
     const positions = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      positions[i*3] = rand(-38, 38);
-      positions[i*3+1] = rand(.8, 6);
-      positions[i*3+2] = rand(-38, 38);
+      positions[i*3] = rand(-58, 58);
+      positions[i*3+1] = rand(.8, 7.5);
+      positions[i*3+2] = rand(-58, 58);
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -738,8 +699,8 @@ class EteriaGame {
       this.player.position.x = clamp(this.player.position.x, 66, 144);
       this.player.position.z = clamp(this.player.position.z, -40, 40);
     } else {
-      this.player.position.x = clamp(this.player.position.x, -40, 40);
-      this.player.position.z = clamp(this.player.position.z, -40, 40);
+      this.player.position.x = clamp(this.player.position.x, -60, 60);
+      this.player.position.z = clamp(this.player.position.z, -60, 60);
     }
 
     if (!this.heroAnimator?.ready) {
@@ -920,7 +881,7 @@ class EteriaGame {
       const dusk = new THREE.Color(0x11172b);
       this.scene.background.copy(dusk).lerp(day, .35 + cycle * .48);
       this.scene.fog.color.copy(this.scene.background);
-      this.scene.fog.density = .018;
+      this.scene.fog.density = .0115;
       this.hemi.intensity = 1.22 + cycle * .42;
       this.sun.intensity = 2.55 + cycle * .78;
       if (this.fillLight) this.fillLight.intensity = .95 + cycle * .28;
@@ -975,7 +936,7 @@ class EteriaGame {
     mapCtx.beginPath(); mapCtx.arc(0,0,w*.47,0,Math.PI*2); mapCtx.clip();
     mapCtx.fillStyle = 'rgba(8, 30, 31, .88)'; mapCtx.fillRect(-w/2,-h/2,w,h);
     const centerX = this.state.currentRegion === 'ashen-wastes' ? 105 : 0;
-    const localHalf = 42;
+    const localHalf = this.state.currentRegion === 'ashen-wastes' ? 42 : 62;
     const s = (w*.43) / localHalf;
     const dot = (x,z,r,color) => { mapCtx.beginPath(); mapCtx.arc((x-centerX)*s, z*s, r, 0, Math.PI*2); mapCtx.fillStyle=color; mapCtx.fill(); };
     for (const c of this.crystals) dot(c.mesh.position.x,c.mesh.position.z,2.4,'#67e8f9');

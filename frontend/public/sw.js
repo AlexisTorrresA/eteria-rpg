@@ -1,4 +1,4 @@
-const CACHE = 'eteria-v9';
+const CACHE = 'eteria-v10';
 const CORE = ['/', '/manifest.webmanifest', '/icon.svg'];
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(CORE)));

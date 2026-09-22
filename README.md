@@ -2,6 +2,22 @@
 
 RPG 3D mobile-first hecho con **JavaScript + Three.js**, empaquetable como APK Android con Capacitor y servido por **FastAPI**.
 
+
+## Eteria 7 · Environment Upgrade
+
+La región inicial deja de depender del plano verde y los árboles geométricos de las primeras versiones:
+
+- terreno de 128×128 con material repetible y variación visual;
+- camino principal curvo con material propio y bordes naturales;
+- lago ampliado con orilla de piedras y animación sutil;
+- colinas de fondo, bruma baja y mayor distancia de visión para que el mundo se perciba más grande;
+- hierba instanciada, flores y detalle de suelo optimizados para móvil;
+- árboles, árboles retorcidos, árboles secos, rocas y piedras del **Quaternius Stylized Nature MegaKit**;
+- carga asíncrona con fallback procedural si los assets no están disponibles;
+- límites jugables del Valle Verde ampliados de ±40 a ±60 y minimapa reajustado.
+
+Los assets de entorno se descargan durante el build desde una copia pública fijada por commit y se verifican por Git blob SHA antes de usarse.
+
 ## Eteria 6
 
 Eteria 6 sustituye el héroe principal de KayKit por una composición humanoide modular basada en **Quaternius**, manteniendo KayKit como fallback seguro:
