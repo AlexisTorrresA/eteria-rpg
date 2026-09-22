@@ -223,9 +223,13 @@ export class RiggedHeroController {
     });
 
     while (this.headGear.children.length) {
-      const child = this.headGear.children.pop();
-      child?.geometry?.dispose?.();
-      child?.material?.dispose?.();
+      const child = this.headGear.children[0];
+      this.headGear.remove(child);
+      child?.traverse?.((obj) => {
+        obj.geometry?.dispose?.();
+        if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose?.());
+        else obj.material?.dispose?.();
+      });
     }
 
     if (equipment.head === 'moon-hood') {
