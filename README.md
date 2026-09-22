@@ -19,6 +19,20 @@ RPG 3D mobile-first hecho con **JavaScript + Three.js + HTML5/CSS**, empaquetabl
 - Dockerfile multi-stage listo para Render.
 - GitHub Action para generar un `app-debug.apk` descargable desde Actions.
 
+### Eteria 2.0
+
+La versión 2.0 amplía la primera zona jugable con una progresión más cercana a un RPG:
+
+- héroe procedural rediseñado con armadura, extremidades animadas, capa y runas;
+- seis armas con daño, velocidad, alcance, crítico y desbloqueo progresivo;
+- Sombra Errante, Saqueador del Umbral y Guardián Caído con estadísticas y siluetas diferentes;
+- capítulos narrativos guiados por Liora y Eldren;
+- jefe final **Vharok, Guardián del Eclipse**;
+- barra de vida del jefe, arma equipada y cambio de arma en HUD;
+- el portal solo se abre después de reunir los fragmentos y derrotar a Vharok.
+
+En PC: `R` cambia de arma y las teclas `1` a `6` seleccionan directamente las armas ya desbloqueadas.
+
 ## Arquitectura
 
 ```text
