@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run generate:hero && vite --host 0.0.0.0",
-    "build": "npm run generate:hero && vite build",
+    "dev": "npm run fetch:assets && npm run generate:hero && vite --host 0.0.0.0",
+    "build": "npm run fetch:assets && npm run generate:hero && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "android:add": "cap add android",
     "android:sync": "npm run build && cap sync android",
     "android:open": "cap open android",
-    "generate:hero": "node scripts/generate-hero-gltf.mjs"
+    "generate:hero": "node scripts/generate-hero-gltf.mjs",
+    "fetch:assets": "node scripts/fetch-kaykit-assets.mjs"
   },
   "dependencies": {
     "@capacitor/core": "8.5.0",
