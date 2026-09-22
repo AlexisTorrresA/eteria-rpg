@@ -13,7 +13,7 @@ DIST_DIR = BASE_DIR / "frontend" / "dist"
 
 app = FastAPI(
     title="Eteria RPG API",
-    version="5.0.0",
+    version="5.1.0",
     docs_url="/api/docs",
     redoc_url=None,
 )
@@ -41,7 +41,7 @@ def health() -> dict[str, str]:
 def game_config() -> dict[str, object]:
     return {
         "name": "Eteria: Fragmentos del Eclipse",
-        "version": "5.0.0",
+        "version": "5.1.0",
         "platforms": ["web", "android"],
         "features": [
             "threejs-3d",
@@ -75,6 +75,10 @@ def game_config() -> dict[str, object]:
             "kaykit-authored-weapons",
             "armor-driven-character-variants",
             "build-time-cc0-assets",
+            "dynamic-context-camera",
+            "analog-walk-run-locomotion",
+            "weapon-specific-animation-profiles",
+            "combat-camera-impulses",
             "quests",
             "local-save",
             "pwa",

@@ -531,6 +531,7 @@ export class RPGSystems {
     game.attackTimer = weapon.cooldown * [0.82, .76, .92, 1.08][step];
     this.combatAnim = { kind: 'basic', step, weaponId: weapon.id, t: 0, duration: game.attackTimer + .12 };
     game.heroAnimator?.playAttack(step);
+    game.dynamicCamera?.kick(step === 3 ? 'heavy' : 'attack', step === 3 ? 1.08 : 1);
     this.vibrate(step === 3 ? 32 : 16);
 
     const forward = game.lastMove.clone().setY(0).normalize();
@@ -555,7 +556,10 @@ export class RPGSystems {
     const fxPos = game.player.position.clone().add(forward.multiplyScalar(1.25)).add(new THREE.Vector3(0, 1, 0));
     this.spawnBurst(fxPos, weapon.glow, 7 + step * 2, .75 + step * .12);
     if (step === 3) this.spawnRing(game.player.position.clone(), weapon.glow, 2.7);
-    if (hit) this.vibrate(step === 3 ? [24, 24, 40] : 28);
+    if (hit) {
+      game.dynamicCamera?.kick('impact', step === 3 ? 1.25 : .85);
+      this.vibrate(step === 3 ? [24, 24, 40] : 28);
+    }
   }
 
   specialAttack() {
@@ -571,6 +575,7 @@ export class RPGSystems {
     this.specialCooldown = special.cooldown * (this.game.progression?.getStats().specialCooldownMultiplier || 1);
     this.combatAnim = { kind: 'special', step: 0, weaponId: weapon.id, t: 0, duration: .72 };
     game.heroAnimator?.playSpecial(weapon.id);
+    game.dynamicCamera?.kick('special', 1.05);
     game.attackTimer = Math.max(game.attackTimer, .62);
     const forward = game.lastMove.clone().setY(0).normalize();
     const origin = game.player.position.clone();

@@ -2,6 +2,26 @@
 
 RPG 3D mobile-first hecho con **JavaScript + Three.js**, empaquetable como APK Android con Capacitor y servido por **FastAPI**.
 
+## Eteria 5.1
+
+La versión 5.1 mejora la sensación de juego del nuevo arte 3D:
+
+- cámara de exploración **más lejana** para que el personaje no ocupe media pantalla;
+- cámara contextual que se acerca suavemente al entrar en combate;
+- encuadre especial de jefe para mantener al héroe y Vharok visibles;
+- punch-in breve al atacar y al conectar golpes;
+- cámara más abierta durante dash y micro-shake al recibir daño;
+- foco cinematográfico corto al aparecer un jefe;
+- FOV dinámico distinto para vertical y horizontal;
+- joystick analógico real: desplazamiento suave = caminar, desplazamiento alto = correr;
+- giro progresivo del personaje en vez de rotación instantánea;
+- animación de locomoción sincronizada con la velocidad real;
+- cuatro golpes de combo visualmente distintos;
+- perfiles de animación por arma: 1H para espada, 2H para hacha/martillo/guja, estocadas para lanza y secuencia rápida para dagas;
+- transiciones más suaves entre idle, walk, run, ataque y dodge.
+
+La cámara procedural anterior ya no controla el gameplay; `DynamicCameraController` centraliza el comportamiento para poder añadir más adelante cámaras de diálogo, interiores y escenas.
+
 ## Eteria 5.0
 
 La versión 5.0 sustituye progresivamente las primitivas procedurales por **modelos 3D authored reales** y CC0 de KayKit:

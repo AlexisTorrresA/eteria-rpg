@@ -30,13 +30,59 @@ const ENEMY_ASSETS = {
 };
 
 const semanticPatterns = {
-  idle: [/^idle/i, /idle/i, /standing/i],
+  idle: [/melee.*idle/i, /^idle/i, /idle/i, /standing/i],
   walk: [/walk/i],
   run: [/run/i, /sprint/i],
-  attack1: [/1h.*attack/i, /attack.*(slice|slash|horizontal|1|a)/i, /melee.*attack/i, /attack/i],
-  attack2: [/attack.*(diagonal|vertical|2|b)/i, /2h.*attack/i, /melee.*attack/i, /attack/i],
-  heavy: [/heavy/i, /2h.*attack/i, /attack.*(strong|power)/i, /attack/i],
-  dash: [/roll/i, /dodge/i, /dash/i, /jump/i, /run/i],
+  attack1: [/attack.*horizontal/i, /attack.*slice/i, /1h.*attack/i, /melee.*attack/i, /attack/i],
+  attack2: [/attack.*diagonal/i, /attack.*chop/i, /melee.*attack/i, /attack/i],
+  attack3: [/attack.*stab/i, /attack.*vertical/i, /melee.*attack/i, /attack/i],
+  heavy: [/attack.*spinning/i, /attack.*spin/i, /heavy/i, /attack.*chop/i, /attack/i],
+  dash: [/dodge.*forward/i, /dodge/i, /roll/i, /dash/i, /jump/i, /run/i],
+};
+
+const WEAPON_ANIMATION_PROFILES = {
+  'aether-blade': {
+    idle: ['1H_Melee_Idle'],
+    attack1: ['1H_Melee_Attack_Slice_Horizontal'],
+    attack2: ['1H_Melee_Attack_Slice_Diagonal'],
+    attack3: ['1H_Melee_Attack_Stab'],
+    heavy: ['1H_Melee_Attack_Chop'],
+  },
+  'ember-axe': {
+    idle: ['2H_Melee_Idle'],
+    attack1: ['2H_Melee_Attack_Chop'],
+    attack2: ['2H_Melee_Attack_Slice'],
+    attack3: ['2H_Melee_Attack_Stab'],
+    heavy: ['2H_Melee_Attack_Spinning', '2H_Melee_Attack_Spin'],
+  },
+  'moon-spear': {
+    idle: ['2H_Melee_Idle'],
+    attack1: ['2H_Melee_Attack_Stab'],
+    attack2: ['2H_Melee_Attack_Slice'],
+    attack3: ['2H_Melee_Attack_Chop'],
+    heavy: ['2H_Melee_Attack_Spin', '2H_Melee_Attack_Spinning'],
+  },
+  'rift-daggers': {
+    idle: ['1H_Melee_Idle'],
+    attack1: ['1H_Melee_Attack_Stab'],
+    attack2: ['1H_Melee_Attack_Slice_Diagonal'],
+    attack3: ['1H_Melee_Attack_Slice_Horizontal'],
+    heavy: ['1H_Melee_Attack_Chop'],
+  },
+  'sun-hammer': {
+    idle: ['2H_Melee_Idle'],
+    attack1: ['2H_Melee_Attack_Chop'],
+    attack2: ['2H_Melee_Attack_Slice'],
+    attack3: ['2H_Melee_Attack_Stab'],
+    heavy: ['2H_Melee_Attack_Spinning', '2H_Melee_Attack_Spin'],
+  },
+  'eclipse-glaive': {
+    idle: ['2H_Melee_Idle'],
+    attack1: ['2H_Melee_Attack_Slice'],
+    attack2: ['2H_Melee_Attack_Stab'],
+    attack3: ['2H_Melee_Attack_Chop'],
+    heavy: ['2H_Melee_Attack_Spinning', '2H_Melee_Attack_Spin'],
+  },
 };
 
 function normalizedName(value = '') {
@@ -48,7 +94,15 @@ function loadGltf(url) {
   return cache.get(url);
 }
 
-function findClip(clips, semantic, exclude = new Set()) {
+function findClip(clips, semantic, exclude = new Set(), preferredNames = []) {
+  for (const preferred of preferredNames) {
+    const normalizedPreferred = normalizedName(preferred);
+    const exact = clips.find((clip) =>
+      !exclude.has(clip.name) && normalizedName(clip.name) === normalizedPreferred
+    );
+    if (exact) return exact;
+  }
+
   const patterns = semanticPatterns[semantic] || [];
   for (const pattern of patterns) {
     const found = clips.find((clip) => !exclude.has(clip.name) && pattern.test(clip.name));
@@ -171,47 +225,88 @@ function addEteriaRune(root, color) {
 }
 
 class AnimationDriver {
-  constructor(root, clips) {
+  constructor(root, clips, weaponId = 'aether-blade') {
     this.root = root;
     this.clips = clips;
     this.mixer = new THREE.AnimationMixer(root);
     this.actions = new Map();
     this.current = null;
     this.oneShot = null;
+    this.weaponId = weaponId;
+    this.configure(weaponId);
+  }
 
-    const used = new Set();
-    for (const semantic of ['idle','walk','run','attack1','attack2','heavy','dash']) {
-      const clip = findClip(clips, semantic, semantic.startsWith('attack') ? used : new Set());
+  configure(weaponId = this.weaponId) {
+    this.weaponId = weaponId;
+    const profile = WEAPON_ANIMATION_PROFILES[weaponId] || WEAPON_ANIMATION_PROFILES['aether-blade'];
+    const previousLoop = this.current;
+
+    if (this.oneShot) {
+      this.oneShot.stop();
+      this.oneShot = null;
+    }
+
+    this.actions.clear();
+    const usedAttacks = new Set();
+    for (const semantic of ['idle','walk','run','attack1','attack2','attack3','heavy','dash']) {
+      const preferred = profile?.[semantic] || [];
+      const clip = findClip(
+        this.clips,
+        semantic,
+        semantic.startsWith('attack') || semantic === 'heavy' ? usedAttacks : new Set(),
+        preferred
+      );
       if (!clip) continue;
-      if (semantic.startsWith('attack')) used.add(clip.name);
+      if (semantic.startsWith('attack') || semantic === 'heavy') usedAttacks.add(clip.name);
+
       const action = this.mixer.clipAction(clip);
-      if (['attack1','attack2','heavy','dash'].includes(semantic)) {
+      action.enabled = true;
+      if (['attack1','attack2','attack3','heavy','dash'].includes(semantic)) {
         action.setLoop(THREE.LoopOnce, 1);
         action.clampWhenFinished = true;
       }
       this.actions.set(semantic, action);
     }
+
+    this.current = null;
+    if (previousLoop && ['idle','walk','run'].includes(previousLoop)) {
+      this.loop(previousLoop, .08, 1);
+    }
   }
 
-  loop(name, fade = .16) {
+  loop(name, fade = .18, speed = 1) {
     if (this.oneShot) return;
     const next = this.actions.get(name) || this.actions.get('idle');
-    if (!next || this.current === name) return;
+    if (!next) return;
+
+    if (this.current === name) {
+      next.setEffectiveTimeScale(speed);
+      return;
+    }
+
     const previous = this.actions.get(this.current);
-    next.reset().setEffectiveWeight(1).setEffectiveTimeScale(1).play();
-    if (previous && previous !== next) previous.crossFadeTo(next, fade, false);
+    next.reset().setEffectiveWeight(1).setEffectiveTimeScale(speed).play();
+
+    if (previous && previous !== next) {
+      previous.crossFadeTo(next, fade, false);
+    }
+
     this.current = name;
   }
 
-  shot(name, speed = 1) {
+  shot(name, speed = 1, fadeIn = .075) {
     const action = this.actions.get(name) || this.actions.get('attack1');
     if (!action) return;
     if (this.oneShot && this.oneShot !== action) this.oneShot.stop();
 
     const loopAction = this.actions.get(this.current) || this.actions.get('idle');
-    action.reset().setLoop(THREE.LoopOnce, 1).setEffectiveTimeScale(speed).setEffectiveWeight(1);
+    action.reset();
+    action.setLoop(THREE.LoopOnce, 1);
     action.clampWhenFinished = true;
-    if (loopAction && loopAction !== action) loopAction.crossFadeTo(action, .07, false);
+    action.setEffectiveTimeScale(speed);
+    action.setEffectiveWeight(1);
+
+    if (loopAction && loopAction !== action) loopAction.crossFadeTo(action, fadeIn, false);
     action.play();
     this.oneShot = action;
 
@@ -222,7 +317,7 @@ class AnimationDriver {
       const back = this.actions.get(this.current) || this.actions.get('idle');
       if (back) {
         back.reset().setEffectiveWeight(1).play();
-        action.crossFadeTo(back, .11, false);
+        action.crossFadeTo(back, .13, false);
       }
     };
     this.mixer.addEventListener('finished', done);
@@ -281,8 +376,8 @@ export class KayKitHeroController {
     this.rightHand = findNode(model, 'right');
     this.leftHand = findNode(model, 'left');
     this.headBone = findHead(model);
-    this.driver = new AnimationDriver(model, gltf.animations || []);
-    this.driver.loop('idle', 0);
+    this.driver = new AnimationDriver(model, gltf.animations || [], this.weapon?.id || 'aether-blade');
+    this.driver.loop('idle', 0, 1);
 
     this.game.player.add(model);
     previous?.removeFromParent();
@@ -298,6 +393,7 @@ export class KayKitHeroController {
   async setWeapon(weapon) {
     if (!weapon || !this.model) return;
     this.weapon = weapon;
+    this.driver?.configure(weapon.id);
     const token = ++this.weaponToken;
     this.clearWeapons();
 
@@ -368,20 +464,55 @@ export class KayKitHeroController {
   }
 
   playAttack(step = 0) {
-    this.driver?.shot(step >= 3 ? 'heavy' : step % 2 ? 'attack2' : 'attack1', step >= 3 ? 1.05 : 1.18);
+    const sequence = ['attack1', 'attack2', 'attack3', 'heavy'];
+    const id = this.weapon?.id || 'aether-blade';
+    const speed = {
+      'aether-blade': 1.08,
+      'ember-axe': .88,
+      'moon-spear': 1.02,
+      'rift-daggers': 1.28,
+      'sun-hammer': .84,
+      'eclipse-glaive': .98,
+    }[id] || 1.05;
+    this.driver?.shot(sequence[Math.min(3, Math.max(0, step))], step >= 3 ? speed * .92 : speed);
   }
 
   playSpecial(weaponId) {
-    this.driver?.shot('heavy', ['ember-axe','sun-hammer'].includes(weaponId) ? .9 : 1.12);
+    const speed = {
+      'aether-blade': 1.02,
+      'ember-axe': .82,
+      'moon-spear': .96,
+      'rift-daggers': 1.24,
+      'sun-hammer': .78,
+      'eclipse-glaive': .92,
+    }[weaponId] || 1;
+    this.driver?.shot('heavy', speed, .06);
   }
 
   playDash() {
-    this.driver?.shot('dash', 1.2);
+    this.driver?.shot('dash', 1.16, .055);
   }
 
-  update(dt, moving, dashing = false) {
+  update(dt, moving, dashing = false, motion = {}) {
     if (!this.ready || !this.driver) return;
-    if (!this.driver.oneShot) this.driver.loop(dashing ? 'run' : moving ? 'walk' : 'idle');
+
+    const inputStrength = motion.inputStrength ?? (moving ? 1 : 0);
+    const locomotionBlend = motion.locomotionBlend ?? inputStrength;
+    let loop = 'idle';
+    let timeScale = 1;
+
+    if (dashing) {
+      loop = 'run';
+      timeScale = 1.28;
+    } else if (moving) {
+      const running = locomotionBlend > .48;
+      loop = running ? 'run' : 'walk';
+      timeScale = running
+        ? THREE.MathUtils.lerp(.92, 1.18, locomotionBlend)
+        : THREE.MathUtils.lerp(.72, 1.08, THREE.MathUtils.clamp(inputStrength / .55, 0, 1));
+    }
+
+    if (!this.driver.oneShot) this.driver.loop(loop, loop === 'idle' ? .22 : .16, timeScale);
     this.driver.update(dt);
   }
 }
@@ -410,8 +541,8 @@ export class KayKitEnemyController {
     this.enemy.group.add(model);
     for (const child of this.fallback) child.visible = false;
     this.model = model;
-    this.driver = new AnimationDriver(model, gltf.animations || []);
-    this.driver.loop('idle', 0);
+    this.driver = new AnimationDriver(model, gltf.animations || [], this.config.weapon || 'aether-blade');
+    this.driver.loop('idle', 0, 1);
     this.ready = true;
 
     const rightHand = findNode(model, 'right');
@@ -444,8 +575,8 @@ export class KayKitEnemyController {
 
   update(dt, moving = false, attacking = false) {
     if (!this.ready || !this.driver) return;
-    if (attacking && !this.driver.oneShot) this.driver.shot('attack1', 1.12);
-    if (!this.driver.oneShot) this.driver.loop(moving ? 'walk' : 'idle');
+    if (attacking && !this.driver.oneShot) this.driver.shot('attack1', 1.04, .07);
+    if (!this.driver.oneShot) this.driver.loop(moving ? 'run' : 'idle', .18, moving ? .92 : 1);
     this.driver.update(dt);
 
     if (this.flashTimer > 0) {
