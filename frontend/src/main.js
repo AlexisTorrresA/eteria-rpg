@@ -5,6 +5,7 @@ import { createHeroModel, createEnemyModel, createWeaponModel } from './models.j
 import { RPGSystems } from './rpgSystems.js';
 import { ProgressionSystems } from './progressionSystems.js';
 import { WorldExpansion } from './worldExpansion.js';
+import { attachRiggedHero } from './heroAsset.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game-canvas');
@@ -253,13 +254,25 @@ class EteriaGame {
 
   createPlayer() {
     const model = createHeroModel(WEAPONS[0]);
-    this.player = model.root;
+    this.player = new THREE.Group();
+    this.player.name = 'EteriaPlayerRoot';
+    this.proceduralHeroVisual = model.root;
+    this.player.add(this.proceduralHeroVisual);
     this.weaponSocket = model.weaponSocket;
     this.heroRig = model;
+    this.heroAnimator = null;
     this.player.position.set(0, 0, 10);
     this.scene.add(this.player);
     this.updateWeaponUnlocks(false);
     this.equipWeapon(this.state.weaponId || 'aether-blade', false);
+
+    attachRiggedHero(this, this.currentWeapon()).then((controller) => {
+      if (!controller) return;
+      this.heroAnimator = controller;
+      this.heroAnimator.setWeapon(this.currentWeapon());
+      this.progression?.applyEquipmentVisual();
+      toast('Modelo GLTF riggeado cargado.');
+    });
   }
 
   currentWeapon() {
@@ -286,6 +299,7 @@ class EteriaGame {
     this.state.weaponId = weapon.id;
     while (this.weaponSocket.children.length) this.weaponSocket.remove(this.weaponSocket.children[0]);
     this.weaponSocket.add(createWeaponModel(weapon));
+    this.heroAnimator?.setWeapon(weapon);
     if (announce) toast(`${weapon.icon} ${weapon.name} equipada`);
     this.updateUI();
     this.rpg?.renderInventory();
@@ -559,6 +573,7 @@ class EteriaGame {
     if (!this.active || this.paused || this.finished || this.dashTimer > 0) return;
     this.dashTimer = 2.15;
     this.dashActive = .19;
+    this.heroAnimator?.playDash();
     vibrate(22);
     UI.dashButton.classList.add('cooldown');
   }
@@ -636,15 +651,18 @@ class EteriaGame {
       this.player.position.z = clamp(this.player.position.z, -40, 40);
     }
 
-    const gait = moving ? Math.sin(this.elapsed * 10) : 0;
-    this.heroRig.legL.rotation.x = gait * .55;
-    this.heroRig.legR.rotation.x = -gait * .55;
-    this.heroRig.armL.rotation.x = -gait * .35;
-    this.heroRig.armR.rotation.x = gait * .28;
-    this.heroRig.cape.rotation.x = -.08 + Math.abs(gait) * .08 + (this.dashActive > 0 ? .22 : 0);
-    this.heroRig.rune.rotation.z += dt * .7;
+    if (!this.heroAnimator?.ready) {
+      const gait = moving ? Math.sin(this.elapsed * 10) : 0;
+      this.heroRig.legL.rotation.x = gait * .55;
+      this.heroRig.legR.rotation.x = -gait * .55;
+      this.heroRig.armL.rotation.x = -gait * .35;
+      this.heroRig.armR.rotation.x = gait * .28;
+      this.heroRig.cape.rotation.x = -.08 + Math.abs(gait) * .08 + (this.dashActive > 0 ? .22 : 0);
+      this.heroRig.rune.rotation.z += dt * .7;
+    }
 
     this.rpg?.updateCombatAnimation(dt, moving);
+    this.heroAnimator?.update(dt, moving, this.dashActive > 0);
   }
 
   updateEnemies(dt) {
