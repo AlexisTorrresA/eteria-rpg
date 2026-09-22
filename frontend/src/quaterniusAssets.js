@@ -68,16 +68,25 @@ function findNode(root, names) {
   return found;
 }
 
-function fitHeight(root, targetHeight = 2.52) {
-  root.updateMatrixWorld(true);
-  let box = new THREE.Box3().setFromObject(root);
+function fitLayerSet(roots, targetHeight = 2.52) {
+  const reference = roots[0];
+  reference.updateMatrixWorld(true);
+  let box = new THREE.Box3().setFromObject(reference);
   const size = new THREE.Vector3();
   box.getSize(size);
-  if (size.y > .001) root.scale.multiplyScalar(targetHeight / size.y);
-  root.updateMatrixWorld(true);
-  box = new THREE.Box3().setFromObject(root);
-  root.position.y -= box.min.y;
-  root.updateMatrixWorld(true);
+  const scale = size.y > .001 ? targetHeight / size.y : 1;
+
+  for (const root of roots) {
+    root.scale.multiplyScalar(scale);
+    root.updateMatrixWorld(true);
+  }
+
+  box = new THREE.Box3().setFromObject(reference);
+  const floorOffset = -box.min.y;
+  for (const root of roots) {
+    root.position.y += floorOffset;
+    root.updateMatrixWorld(true);
+  }
 }
 
 function prepareMaterials(root, preset = {}) {
@@ -194,10 +203,14 @@ async function buildCharacterLayers(config, targetHeight = 2.52) {
   const names = [config.outfit, config.head, config.hair].filter(Boolean);
   const gltfs = await Promise.all(names.map((name) => loadGltf(ASSET_URL(name))));
   const roots = gltfs.map((gltf) => cloneSkeleton(gltf.scene));
-  for (const root of roots) {
-    prepareMaterials(root, config);
-    fitHeight(root, targetHeight);
+
+  // All modular parts share the same Quaternius rig coordinates. Scale the full
+  // outfit once, then apply the exact same transform to the head and hair.
+  prepareMaterials(roots[0], config);
+  for (let i = 1; i < roots.length; i++) {
+    prepareMaterials(roots[i], { roughness: .72, metalness: 0 });
   }
+  fitLayerSet(roots, targetHeight);
   return roots;
 }
 
