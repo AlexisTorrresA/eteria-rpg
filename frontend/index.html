@@ -30,7 +30,7 @@
           <p class="story">Hace siglos, el Corazón del Eclipse mantenía en equilibrio la luz y la sombra. Al romperse, sus fragmentos corrompieron a los antiguos guardianes. Eres un Viajero del Umbral: recupera los fragmentos, descubre quién despertó a Vharok y abre el camino hacia las regiones perdidas de Eteria.</p>
           <button id="start-btn" class="primary-btn">Nueva aventura</button>
           <button id="continue-btn" class="secondary-btn hidden">Continuar</button>
-          <div class="menu-hint">PC: WASD · Espacio combo · E especial · F interactuar · I inventario · R cambiar arma · Shift dash</div>
+          <div class="menu-hint">PC: WASD · Espacio combo · E especial · F interactuar · I inventario · C personaje · J misiones · R cambiar arma · Shift dash</div>
         </div>
       </div>
 
@@ -62,6 +62,8 @@
 
         <button id="pause-btn" class="icon-btn top-button" aria-label="Pausar">Ⅱ</button>
         <button id="inventory-btn" class="icon-btn inventory-top" aria-label="Inventario">🎒</button>
+        <button id="character-btn" class="icon-btn character-top" aria-label="Personaje y habilidades">🛡</button>
+        <button id="quests-btn" class="icon-btn quests-top" aria-label="Misiones">📜</button>
 
         <div id="toast" class="toast"></div>
         <div id="interact-prompt" class="interact-prompt hidden">F · Interactuar</div>
@@ -105,6 +107,56 @@
         <div class="inventory-hint">Toca un arma desbloqueada para equiparla. Los cofres quedan abiertos al guardar la partida.</div>
       </section>
 
+      <section id="character-panel" class="progression-panel glass hidden">
+        <header class="inventory-header">
+          <div>
+            <div class="eyebrow">PERSONAJE</div>
+            <h2>Equipo y habilidades</h2>
+          </div>
+          <button id="character-close" class="panel-close" aria-label="Cerrar">×</button>
+        </header>
+
+        <div class="character-stats">
+          <div><b id="stat-str">10</b><span>STR</span><small>Daño</small></div>
+          <div><b id="stat-def">2</b><span>DEF</span><small>Defensa</small></div>
+          <div><b id="stat-crit">8%</b><span>CRIT</span><small>Crítico</small></div>
+          <div><b id="stat-hp">100</b><span>HP</span><small>Vida máxima</small></div>
+        </div>
+
+        <section class="inventory-section">
+          <h3>Equipo</h3>
+          <div id="armor-grid" class="armor-grid"></div>
+        </section>
+
+        <section class="inventory-section">
+          <div class="skill-heading"><h3>Árbol de habilidades</h3><span><b id="skill-points">0</b> puntos disponibles</span></div>
+          <div id="skill-grid" class="skill-grid"></div>
+        </section>
+      </section>
+
+      <section id="quests-panel" class="quests-panel glass hidden">
+        <header class="inventory-header">
+          <div>
+            <div class="eyebrow">DIARIO DEL VIAJERO</div>
+            <h2>Misiones</h2>
+          </div>
+          <button id="quests-close" class="panel-close" aria-label="Cerrar">×</button>
+        </header>
+        <div id="quest-list" class="quest-list"></div>
+      </section>
+
+      <section id="shop-panel" class="shop-panel glass hidden">
+        <header class="inventory-header">
+          <div>
+            <div class="eyebrow">BRAM · HERRERO DEL SANTUARIO</div>
+            <h2>Forja y suministros</h2>
+          </div>
+          <div class="shop-balance"><b id="shop-gold">0 ✦</b><button id="shop-close" class="panel-close" aria-label="Cerrar">×</button></div>
+        </header>
+        <p class="shop-copy">La esencia que recoges de enemigos y cofres ahora sirve para comprar equipo y pociones.</p>
+        <div id="shop-items" class="shop-items"></div>
+      </section>
+
       <section id="dialogue-box" class="dialogue-box glass hidden">
         <div class="dialogue-portrait">✦</div>
         <div class="dialogue-copy">
@@ -131,8 +183,8 @@
         <div class="menu-card glass victory-card">
           <div class="logo-mark">✦</div>
           <div class="eyebrow">CAPÍTULO COMPLETADO</div>
-          <h1>Eteria respira otra vez</h1>
-          <p>Has recuperado los fragmentos, derrotado a Vharok y restaurado el primer sello. El portal conduce ahora a una región desconocida de Eteria, donde el origen real del Eclipse sigue esperando.</p>
+          <h1>La Ceniza cede</h1>
+          <p>Derrotaste a Vharok, cruzaste el Umbral y sobreviviste a las Tierras de Ceniza. El faro oriental vuelve a arder: el camino hacia la siguiente región de Eteria ha quedado abierto.</p>
           <div id="victory-stats" class="victory-stats"></div>
           <button id="victory-restart-btn" class="primary-btn">Jugar de nuevo</button>
         </div>
