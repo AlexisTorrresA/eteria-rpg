@@ -94,6 +94,12 @@ const mocap=JSON.parse(fs.readFileSync(mocapPath,'utf8'));
 for(const clipName of ['Walk','Run']){
   const clip=mocap.clips[clipName];
   const tracks=Object.entries(clip.tracks).map(([bone,keys])=>[bone,keys]);
+  const duration=clip.duration || (clipName==='Run' ? .72 : 1);
+  const armAmount=clipName==='Run' ? .58 : .32;
+  tracks.push(
+    ['UpperArm_L',loop([[-armAmount,0,0],[0,0,0],[armAmount,0,0],[0,0,0]],duration)],
+    ['UpperArm_R',loop([[armAmount,0,0],[0,0,0],[-armAmount,0,0],[0,0,0]],duration)]
+  );
   animation(clipName,tracks);
 }
 animation('Attack_1',[['Chest',[[0,quat()],[.16,quat(0,-.35,-.12)],[.32,quat(.08,.42,.12)],[.52,quat()]]],['UpperArm_R',[[0,quat()],[.16,quat(-.75,0,-.65)],[.32,quat(-.2,0,1)],[.52,quat()]]]]);
