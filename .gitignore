@@ -25,3 +25,4 @@ Thumbs.db
 
 # Build-fetched CC0 3D assets
 frontend/public/assets/kaykit/runtime/
+frontend/public/assets/quaternius/runtime/
