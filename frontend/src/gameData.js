@@ -22,7 +22,7 @@ export const WEAPONS = [
     crit: 0.12,
     color: 0x9ca3af,
     glow: 0xf97316,
-    unlock: { level: 2, kills: 2, crystals: 0 },
+    unlock: { level: 1, kills: 2, crystals: 0 },
     lore: 'Pesada, lenta y devastadora contra guardianes.'
   },
   {
@@ -48,7 +48,7 @@ export const WEAPONS = [
     crit: 0.24,
     color: 0xe2e8f0,
     glow: 0x22d3ee,
-    unlock: { level: 3, kills: 5, crystals: 2 },
+    unlock: { level: 2, kills: 5, crystals: 2 },
     lore: 'Dos hojas rápidas forjadas con cristal fracturado.'
   },
   {
@@ -61,7 +61,7 @@ export const WEAPONS = [
     crit: 0.08,
     color: 0xfef3c7,
     glow: 0xfbbf24,
-    unlock: { level: 4, kills: 6, crystals: 4 },
+    unlock: { level: 3, kills: 6, crystals: 4 },
     lore: 'Un arma de los antiguos centinelas de Eteria.'
   },
   {
@@ -74,7 +74,7 @@ export const WEAPONS = [
     crit: 0.2,
     color: 0xe9d5ff,
     glow: 0xc026d3,
-    unlock: { level: 5, kills: 8, crystals: 6 },
+    unlock: { level: 3, kills: 8, crystals: 6 },
     lore: 'Combina luz y sombra sin pertenecer a ninguna.'
   }
 ];
