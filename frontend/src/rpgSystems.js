@@ -705,13 +705,13 @@ export class RPGSystems {
     if (g.heroAnimator?.ready) return;
     const socket = g.weaponSocket;
     const rig = g.heroRig;
-    const basePos = new THREE.Vector3(.62, 1.08, -.08);
+    const basePos = new THREE.Vector3(.55, .83, -.06);
 
     if (!this.combatAnim) {
       socket.position.lerp(basePos, .24);
-      socket.rotation.x = THREE.MathUtils.lerp(socket.rotation.x, -.12, .22);
+      socket.rotation.x = THREE.MathUtils.lerp(socket.rotation.x, -.08, .22);
       socket.rotation.y = THREE.MathUtils.lerp(socket.rotation.y, 0, .22);
-      socket.rotation.z = THREE.MathUtils.lerp(socket.rotation.z, -.55, .22);
+      socket.rotation.z = THREE.MathUtils.lerp(socket.rotation.z, -.48, .22);
       if (!moving) {
         rig.armL.rotation.z = THREE.MathUtils.lerp(rig.armL.rotation.z, 0, .2);
         rig.armR.rotation.z = THREE.MathUtils.lerp(rig.armR.rotation.z, 0, .2);
@@ -728,7 +728,7 @@ export class RPGSystems {
     if (a.kind === 'basic') {
       const step = a.step;
       if (weaponId === 'moon-spear') {
-        socket.position.z = -.08 - wave * (1.05 + step * .12);
+        socket.position.z = -.06 - wave * (1.05 + step * .12);
         socket.rotation.x = -.05 + wave * .18;
         socket.rotation.z = -.48;
         rig.armR.rotation.x = -wave * .95;
@@ -740,16 +740,16 @@ export class RPGSystems {
       } else if (weaponId === 'ember-axe' || weaponId === 'sun-hammer') {
         socket.rotation.x = -.15 - wave * (step === 3 ? 2.3 : 1.65);
         socket.rotation.z = -.5 + Math.sin(p * Math.PI * 2) * .35;
-        socket.position.y = 1.08 + wave * .42;
+        socket.position.y = .83 + wave * .42;
         rig.armR.rotation.x = -wave * 1.15;
       } else if (weaponId === 'eclipse-glaive') {
         socket.rotation.y = p * Math.PI * 2 * (step === 3 ? 1.35 : .72);
-        socket.rotation.z = -.55 - wave * 1.25;
+        socket.rotation.z = -.48 - wave * 1.25;
         rig.armL.rotation.z = wave * .55;
       } else {
         const direction = step % 2 ? 1 : -1;
-        socket.rotation.z = -.55 + direction * wave * (step === 3 ? 2.3 : 1.7);
-        socket.rotation.x = -.12 - wave * (step === 2 ? .85 : .32);
+        socket.rotation.z = -.48 + direction * wave * (step === 3 ? 2.3 : 1.7);
+        socket.rotation.x = -.08 - wave * (step === 2 ? .85 : .32);
         rig.armR.rotation.z = direction * wave * .55;
       }
 
@@ -759,21 +759,21 @@ export class RPGSystems {
       }
     } else {
       if (weaponId === 'moon-spear') {
-        socket.position.z = -.08 - wave * 1.7;
+        socket.position.z = -.06 - wave * 1.7;
         socket.rotation.z = -.35;
         rig.armR.rotation.x = -wave * 1.35;
       } else if (weaponId === 'rift-daggers') {
         socket.rotation.y = p * Math.PI * 7;
-        socket.rotation.z = -.55 + Math.sin(p * Math.PI * 5) * 1.3;
+        socket.rotation.z = -.48 + Math.sin(p * Math.PI * 5) * 1.3;
         rig.armL.rotation.z = Math.sin(p * Math.PI * 6) * .9;
         rig.armR.rotation.z = -rig.armL.rotation.z;
       } else if (weaponId === 'ember-axe' || weaponId === 'sun-hammer') {
-        socket.position.y = 1.08 + wave * .75;
-        socket.rotation.x = -.12 - p * Math.PI * 2.5;
+        socket.position.y = .83 + wave * .75;
+        socket.rotation.x = -.08 - p * Math.PI * 2.5;
         rig.armR.rotation.x = -wave * 1.5;
       } else {
         socket.rotation.y = p * Math.PI * 4;
-        socket.rotation.z = -.55 - wave * 1.65;
+        socket.rotation.z = -.48 - wave * 1.65;
         rig.armL.rotation.z = wave * .8;
         rig.armR.rotation.z = -wave * .5;
       }
