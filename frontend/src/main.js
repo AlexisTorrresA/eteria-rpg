@@ -6,11 +6,13 @@ import { RPGSystems } from './rpgSystems.js';
 import { ProgressionSystems } from './progressionSystems.js';
 import { WorldExpansion } from './worldExpansion.js';
 import { attachRiggedHero } from './heroAsset.js';
+import { attachQuaterniusHero, attachQuaterniusNPC } from './quaterniusAssets.js';
 import { attachKayKitHero, attachKayKitEnemy } from './kaykitAssets.js';
 import { DynamicCameraController } from './cameraController.js';
 
 const query = new URLSearchParams(location.search);
 const RIGGED_HERO_EXPERIMENTAL = query.get('rig') === '1';
+const FORCE_KAYKIT_HERO = query.get('hero') === 'kaykit';
 const FORCE_PROCEDURAL_HERO = query.get('hero') === 'procedural';
 
 const $ = (id) => document.getElementById(id);
@@ -99,6 +101,7 @@ class EteriaGame {
     this.boss = null;
     this.unlockedWeaponIds = new Set();
     this.storyKey = 'intro';
+    this.npcControllers = [];
 
     this.defaultState();
     this.createWorld();
@@ -202,6 +205,7 @@ class EteriaGame {
     this.createRuins();
     this.createFireflies();
     this.createPortal();
+    this.createQuaterniusNPCs();
   }
 
   makeTree(x, z, scale) {
@@ -272,6 +276,14 @@ class EteriaGame {
     });
   }
 
+  createQuaterniusNPCs() {
+    for (const id of ['liora', 'eldren']) {
+      attachQuaterniusNPC(this, id).then((controller) => {
+        if (controller) this.npcControllers.push(controller);
+      });
+    }
+  }
+
   createPlayer() {
     const model = createHeroModel(WEAPONS[0]);
     this.player = new THREE.Group();
@@ -295,15 +307,28 @@ class EteriaGame {
         toast('Modo experimental GLTF activo.');
       });
     } else if (!FORCE_PROCEDURAL_HERO) {
-      attachKayKitHero(this, this.currentWeapon()).then((controller) => {
+      const loadKayKitFallback = () => attachKayKitHero(this, this.currentWeapon()).then((controller) => {
         if (!controller) {
-          toast('Modelo externo no disponible · usando héroe Eteria.');
-          return;
+          toast('Modelo humano no disponible · usando héroe Eteria.');
+          return null;
         }
         this.heroAnimator = controller;
         this.progression?.applyEquipmentVisual();
-        toast('Héroe 3D KayKit cargado.');
+        toast(FORCE_KAYKIT_HERO ? 'Héroe 3D KayKit cargado.' : 'Quaternius no disponible · KayKit activado.');
+        return controller;
       });
+
+      if (FORCE_KAYKIT_HERO) {
+        loadKayKitFallback();
+      } else {
+        attachQuaterniusHero(this, this.currentWeapon()).then((controller) => {
+          if (!controller) return loadKayKitFallback();
+          this.heroAnimator = controller;
+          this.progression?.applyEquipmentVisual();
+          toast('Eteria 6 · héroe humano Quaternius cargado.');
+          return controller;
+        });
+      }
     }
   }
 
@@ -987,6 +1012,7 @@ class EteriaGame {
     const dt = Math.min(this.clock.getDelta(), .033);
     this.elapsed += dt;
     for (const fn of this.decorAnimations) fn(this.elapsed);
+    for (const npc of this.npcControllers) npc.update(dt);
 
     if (this.active && !this.paused && !this.finished) {
       this.updateTimers(dt);
