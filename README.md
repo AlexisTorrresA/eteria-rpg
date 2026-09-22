@@ -2,6 +2,26 @@
 
 RPG 3D mobile-first hecho con **JavaScript + Three.js**, empaquetable como APK Android con Capacitor y servido por **FastAPI**.
 
+## Eteria 5.0
+
+La versión 5.0 sustituye progresivamente las primitivas procedurales por **modelos 3D authored reales** y CC0 de KayKit:
+
+- **Rogue** como apariencia jugable base;
+- **Rogue Hooded** cuando se equipa la Capucha Lunar;
+- **Knight** cuando se equipa la Coraza del Guardián;
+- Skeleton Rogue y Skeleton Warrior como visuales authored para enemigos humanoides;
+- espada de una mano, espada de dos manos, daga, hacha de dos manos, staff y ballesta authored;
+- las armas authored se montan sobre los huesos de mano de los personajes;
+- los modelos incluyen skeleton y animaciones propias; Eteria selecciona dinámicamente Idle/Walk/Run/Attack/Dodge mediante sus nombres;
+- el modelo procedural 4.3 se mantiene como fallback automático si un GLB no carga;
+- Vharok y el Sabueso de Escoria conservan sus meshes propios para mantener una silueta única;
+- los assets no dependen de Internet durante la partida: se descargan **durante el build**, se verifican contra el SHA del blob Git original y Vite/Capacitor los empaquetan en web y APK;
+- los packs usados son **KayKit Adventurers** y **KayKit Skeletons**, ambos CC0.
+
+Para forzar el héroe procedural durante pruebas se puede abrir con `?hero=procedural`. El rig experimental generado en Eteria 4.2 sigue disponible con `?rig=1`.
+
+La procedencia, commits fijados y licencia están documentados en `frontend/public/assets/kaykit/ASSET_SOURCES.md`.
+
 ## Eteria 4.3
 
 Actualización centrada en corregir la lectura visual observada en móvil:
