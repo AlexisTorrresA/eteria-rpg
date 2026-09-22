@@ -108,6 +108,7 @@ class EteriaGame {
     this.createPlayer();
     this.dynamicCamera = new DynamicCameraController(this);
     this.rpg = new RPGSystems(this, { toast, vibrate });
+    this.createQuaterniusNPCs();
     this.progression = new ProgressionSystems(this, { toast, vibrate });
     this.world = new WorldExpansion(this, { toast, vibrate });
     this.bindInput();
@@ -205,7 +206,6 @@ class EteriaGame {
     this.createRuins();
     this.createFireflies();
     this.createPortal();
-    this.createQuaterniusNPCs();
   }
 
   makeTree(x, z, scale) {
