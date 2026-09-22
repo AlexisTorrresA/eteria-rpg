@@ -35,18 +35,19 @@ const NPC_PRESETS = {
 };
 
 const ASSET_URL = (name) => `${BASE}/characters/${name}.glb`;
-const ANIMATION_URL = `${BASE}/animations/UAL2_Standard.glb`;
+const LOCOMOTION_ANIMATION_URL = `${BASE}/animations/UAL1_Standard.gltf`;
+const COMBAT_ANIMATION_URL = `${BASE}/animations/UAL2_Standard.glb`;
 
 const semanticPatterns = {
-  idle: [/idle.*loop/i, /idle/i, /standing/i],
-  walk: [/walk.*forward/i, /walk/i],
-  run: [/jog.*forward/i, /run.*forward/i, /sprint/i, /jog/i, /run/i],
-  attack1: [/sword.*combo.*1/i, /sword.*attack.*1/i, /melee.*combo.*1/i, /attack.*1/i, /slash/i, /attack/i],
-  attack2: [/sword.*combo.*2/i, /sword.*attack.*2/i, /melee.*combo.*2/i, /attack.*2/i, /strike/i, /attack/i],
-  attack3: [/sword.*combo.*3/i, /sword.*attack.*3/i, /melee.*combo.*3/i, /attack.*3/i, /stab/i, /attack/i],
-  heavy: [/heavy/i, /combo.*full/i, /combo.*3/i, /power.*attack/i, /attack/i],
-  dash: [/dodge.*forward/i, /dodge/i, /roll.*forward/i, /roll/i, /dash/i, /parkour/i, /run/i],
-};
+  idle: [/^idle_loop$/i, /idle.*loop/i, /idle/i],
+  walk: [/^walk_loop$/i, /walk.*loop/i, /walk/i],
+  run: [/^jog_fwd_loop$/i, /^sprint_loop$/i, /jog.*fwd.*loop/i, /sprint.*loop/i, /jog/i, /run/i],
+  attack1: [/^sword_regular_a$/i, /^sword_attack$/i, /sword.*regular.*a$/i, /sword.*attack/i, /attack.*1/i],
+  attack2: [/^sword_regular_b$/i, /sword.*regular.*b$/i, /attack.*2/i, /strike/i],
+  attack3: [/^sword_regular_c$/i, /sword.*regular.*c$/i, /attack.*3/i, /stab/i],
+  heavy: [/^sword_heavy_combo$/i, /^sword_regular_combo$/i, /sword.*heavy.*combo/i, /combo.*full/i, /heavy/i],
+  dash: [/^roll$/i, /^sword_dash$/i, /roll/i, /dodge/i, /dash/i],
+}
 
 function normalized(value = '') {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -113,13 +114,14 @@ function selectClip(clips, semantic, used = new Set()) {
     const clip = clips.find((candidate) => !used.has(candidate.name) && pattern.test(candidate.name || ''));
     if (clip) return clip;
   }
-  return clips.find((candidate) => !used.has(candidate.name)) || null;
+  return null;
 }
 
 class SyncedAnimationDriver {
-  constructor(roots, clips) {
+  constructor(roots, libraries = {}) {
     this.roots = roots;
-    this.clips = clips;
+    this.locomotionClips = libraries.locomotion || [];
+    this.combatClips = libraries.combat || [];
     this.mixers = roots.map((root) => new THREE.AnimationMixer(root));
     this.actions = new Map();
     this.current = null;
@@ -131,8 +133,14 @@ class SyncedAnimationDriver {
     const usedAttacks = new Set();
     for (const semantic of ['idle', 'walk', 'run', 'attack1', 'attack2', 'attack3', 'heavy', 'dash']) {
       const attack = semantic.startsWith('attack') || semantic === 'heavy';
-      const clip = selectClip(this.clips, semantic, attack ? usedAttacks : new Set());
-      if (!clip) continue;
+      const primary = attack ? this.combatClips : this.locomotionClips;
+      const secondary = attack ? this.locomotionClips : this.combatClips;
+      const used = attack ? usedAttacks : new Set();
+      const clip = selectClip(primary, semantic, used) || selectClip(secondary, semantic, used);
+      if (!clip) {
+        console.warn(`[eteria] Missing Quaternius animation: ${semantic}`);
+        continue;
+      }
       if (attack) usedAttacks.add(clip.name);
       const actions = this.mixers.map((mixer) => {
         const action = mixer.clipAction(clip);
@@ -284,9 +292,10 @@ export class QuaterniusHeroController {
     if (!initial && presetId === this.presetId) return;
     const token = ++this.swapToken;
     const preset = HERO_PRESETS[presetId] || HERO_PRESETS.aether;
-    const [layers, animGltf] = await Promise.all([
+    const [layers, locomotionGltf, combatGltf] = await Promise.all([
       buildCharacterLayers(preset, 2.52),
-      loadGltf(ANIMATION_URL),
+      loadGltf(LOCOMOTION_ANIMATION_URL),
+      loadGltf(COMBAT_ANIMATION_URL),
     ]);
     if (token !== this.swapToken) return;
 
@@ -294,7 +303,10 @@ export class QuaterniusHeroController {
     this.layers.forEach((layer) => layer.removeFromParent());
     this.layers = layers;
     layers.forEach((layer) => this.root.add(layer));
-    this.driver = new SyncedAnimationDriver(layers, animGltf.animations || []);
+    this.driver = new SyncedAnimationDriver(layers, {
+      locomotion: locomotionGltf.animations || [],
+      combat: combatGltf.animations || [],
+    });
     this.driver.loop('idle', 0, 1);
     this.presetId = presetId;
     this.rightHand = findNode(layers[0], ['hand_r', 'righthand']);
@@ -385,9 +397,9 @@ class QuaterniusNPCController {
     const npc = this.game.rpg?.npcs?.find((candidate) => candidate.id === this.id);
     if (!npc?.root) throw new Error(`Interactive NPC anchor not found: ${this.id}`);
 
-    const [layers, animGltf] = await Promise.all([
+    const [layers, locomotionGltf] = await Promise.all([
       buildCharacterLayers(this.config, 2.42),
-      loadGltf(ANIMATION_URL),
+      loadGltf(LOCOMOTION_ANIMATION_URL),
     ]);
 
     this.anchor = npc.root;
@@ -400,7 +412,10 @@ class QuaterniusNPCController {
     addNameplate(this.root, this.config.label);
     npc.root.add(this.root);
 
-    this.driver = new SyncedAnimationDriver(layers, animGltf.animations || []);
+    this.driver = new SyncedAnimationDriver(layers, {
+      locomotion: locomotionGltf.animations || [],
+      combat: [],
+    });
     this.driver.loop('idle', 0, .88);
     this.ready = true;
     return this;

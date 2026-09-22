@@ -8,6 +8,12 @@ const GENESARA = {
   root: 'public/models/characters',
 };
 
+const UAL1 = {
+  repo: 'J-Ponzo/gltf-universal-animation-library',
+  commit: 'e24c23cf2a1323488a3faa226ea7ea21f644b73e',
+  root: 'glTF',
+};
+
 const FREE_MODELS = {
   repo: 'agentkaerf/FreeModels',
   commit: 'db3df04d1e4714298a09510b26fb6de6645138a2',
@@ -15,6 +21,20 @@ const FREE_MODELS = {
 };
 
 const assets = [
+  {
+    source: UAL1,
+    src: 'AnimationLibrary_Godot_Standard.gltf',
+    out: 'animations/UAL1_Standard.gltf',
+    sha: 'd9e132ad1d41089f8f96488775829d220a4beb05',
+    min: 2_400_000,
+  },
+  {
+    source: UAL1,
+    src: 'AnimationLibrary_Godot_Standard.bin',
+    out: 'animations/AnimationLibrary_Godot_Standard.bin',
+    sha: '481652b8b1571b15c254b44f4d9b9f702498f948',
+    min: 1_500_000,
+  },
   { source: GENESARA, src: 'male_ranger.glb', out: 'characters/male_ranger.glb', sha: '6a96cf9743dff4274f9eb2e8daef571586ce6090', min: 1_500_000 },
   { source: GENESARA, src: 'male_peasant.glb', out: 'characters/male_peasant.glb', sha: '99c2d6cd0701c1b9fa015d77015bd8ec43d85f8c', min: 600_000 },
   { source: GENESARA, src: 'male_head.glb', out: 'characters/male_head.glb', sha: '6d8482dad3eec64117d3cf7dea0f651cb782549f', min: 200_000 },

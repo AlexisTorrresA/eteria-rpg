@@ -3,17 +3,17 @@ import * as THREE from 'three';
 const PRESETS = {
   portrait: {
     explore: { height: 8.55, distance: 13.6, fov: 54, lookAhead: 1.25, enemyWeight: 0 },
-    combat:  { height: 7.15, distance: 11.15, fov: 51, lookAhead: .65, enemyWeight: .22 },
-    boss:    { height: 8.65, distance: 13.85, fov: 54, lookAhead: .4, enemyWeight: .34 },
+    combat:  { height: 7.75, distance: 12.55, fov: 52, lookAhead: .22, enemyWeight: .10 },
+    boss:    { height: 8.8, distance: 14.1, fov: 54, lookAhead: .25, enemyWeight: .18 },
     dash:    { height: 8.35, distance: 14.8, fov: 55, lookAhead: 1.65, enemyWeight: 0 },
-    focus:   { height: 6.9, distance: 10.65, fov: 49, lookAhead: .2, enemyWeight: .46 },
+    focus:   { height: 7.6, distance: 12.2, fov: 51, lookAhead: .15, enemyWeight: .20 },
   },
   landscape: {
     explore: { height: 7.05, distance: 11.8, fov: 50, lookAhead: 1.35, enemyWeight: 0 },
-    combat:  { height: 6.1, distance: 9.85, fov: 48, lookAhead: .75, enemyWeight: .2 },
-    boss:    { height: 7.25, distance: 12.2, fov: 51, lookAhead: .45, enemyWeight: .3 },
+    combat:  { height: 6.55, distance: 10.9, fov: 49, lookAhead: .28, enemyWeight: .10 },
+    boss:    { height: 7.4, distance: 12.7, fov: 51, lookAhead: .25, enemyWeight: .16 },
     dash:    { height: 7.0, distance: 13.1, fov: 52, lookAhead: 1.8, enemyWeight: 0 },
-    focus:   { height: 5.9, distance: 9.5, fov: 47, lookAhead: .2, enemyWeight: .42 },
+    focus:   { height: 6.35, distance: 10.7, fov: 48, lookAhead: .15, enemyWeight: .18 },
   },
 };
 
@@ -37,26 +37,26 @@ export class DynamicCameraController {
 
   kick(kind, strength = 1) {
     if (kind === 'attack') {
-      this.zoomImpulse -= .48 * strength;
-      this.combatHold = Math.max(this.combatHold, 1.7);
+      this.zoomImpulse -= .08 * strength;
+      this.combatHold = Math.max(this.combatHold, 1.25);
     } else if (kind === 'heavy') {
-      this.zoomImpulse -= .9 * strength;
-      this.shake = Math.max(this.shake, .045 * strength);
-      this.combatHold = Math.max(this.combatHold, 2.0);
+      this.zoomImpulse -= .18 * strength;
+      this.shake = Math.max(this.shake, .032 * strength);
+      this.combatHold = Math.max(this.combatHold, 1.55);
     } else if (kind === 'special') {
-      this.zoomImpulse -= 1.15 * strength;
-      this.shake = Math.max(this.shake, .06 * strength);
-      this.combatHold = Math.max(this.combatHold, 2.3);
+      this.zoomImpulse -= .25 * strength;
+      this.shake = Math.max(this.shake, .045 * strength);
+      this.combatHold = Math.max(this.combatHold, 1.75);
     } else if (kind === 'impact') {
-      this.zoomImpulse -= .28 * strength;
-      this.shake = Math.max(this.shake, .075 * strength);
-      this.combatHold = Math.max(this.combatHold, 1.7);
+      this.zoomImpulse -= .06 * strength;
+      this.shake = Math.max(this.shake, .052 * strength);
+      this.combatHold = Math.max(this.combatHold, 1.25);
     } else if (kind === 'dash') {
-      this.zoomImpulse += 1.45 * strength;
+      this.zoomImpulse += .9 * strength;
     } else if (kind === 'damage') {
-      this.zoomImpulse += .16 * strength;
-      this.shake = Math.max(this.shake, .16 * strength);
-      this.combatHold = Math.max(this.combatHold, 1.2);
+      this.zoomImpulse += .1 * strength;
+      this.shake = Math.max(this.shake, .11 * strength);
+      this.combatHold = Math.max(this.combatHold, 1.0);
     }
   }
 
@@ -109,32 +109,48 @@ export class DynamicCameraController {
     if (move.lengthSq() < .0001) move.set(0, 0, -1);
     move.normalize();
 
-    const desiredLook = player.clone();
-    desiredLook.y += 1.25;
-    desiredLook.addScaledVector(move, preset.lookAhead);
+    // Keep the hero as the camera anchor. Combat can bias the gaze toward a
+    // target, but it must never drag the camera itself away from the player.
+    const heroLook = player.clone();
+    heroLook.y += portrait ? 1.35 : 1.25;
+
+    const desiredLook = heroLook.clone();
+    const combatFraming = mode === 'combat' || mode === 'boss' || mode === 'focus';
+    const safeLookAhead = combatFraming
+      ? Math.min(preset.lookAhead, portrait ? .22 : .3)
+      : preset.lookAhead;
+    desiredLook.addScaledVector(move, safeLookAhead);
 
     const targetEnemy = boss && mode === 'boss' ? boss : nearest;
     if (targetEnemy && preset.enemyWeight > 0) {
       const enemyPoint = targetEnemy.group.position.clone();
       enemyPoint.y += targetEnemy.isBoss ? 1.8 : 1.15;
-      desiredLook.lerp(enemyPoint, preset.enemyWeight);
+      const toEnemy = enemyPoint.sub(heroLook);
+      const maxTargetOffset = portrait ? 1.45 : 2.05;
+      if (toEnemy.length() > maxTargetOffset) toEnemy.setLength(maxTargetOffset);
+      desiredLook.addScaledVector(toEnemy, preset.enemyWeight);
     }
 
     if (this.focusTime > 0) {
       const point = this.focusPoint.clone();
       point.y += .9;
-      desiredLook.lerp(point, this.focusStrength);
+      const toFocus = point.sub(heroLook);
+      const maxFocusOffset = portrait ? 1.8 : 2.5;
+      if (toFocus.length() > maxFocusOffset) toFocus.setLength(maxFocusOffset);
+      desiredLook.addScaledVector(toFocus, Math.min(this.focusStrength, .35));
     }
 
-    const desiredPosition = desiredLook.clone().add(new THREE.Vector3(
+    const cameraAnchor = player.clone();
+    const desiredPosition = cameraAnchor.add(new THREE.Vector3(
       0,
       preset.height,
       preset.distance + this.zoomImpulse
     ));
 
-    // Slightly bias the camera opposite the movement direction to reveal more space ahead.
-    desiredPosition.x -= move.x * (portrait ? .42 : .62);
-    desiredPosition.z -= move.z * .18;
+    // Small reveal-ahead offset only; the player remains inside the safe center
+    // area even while swinging a weapon on a portrait phone display.
+    desiredPosition.x -= move.x * (portrait ? .2 : .32);
+    desiredPosition.z -= move.z * .08;
 
     const posAlpha = expSmoothing(mode === 'combat' || mode === 'focus' ? 5.2 : 3.6, dt);
     const lookAlpha = expSmoothing(mode === 'combat' || mode === 'focus' ? 7.2 : 4.7, dt);
