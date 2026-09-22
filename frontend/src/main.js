@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import './style.css';
+import { WEAPONS, ENEMY_ARCHETYPES, BOSS, STORY, weaponUnlocked } from './gameData.js';
+import { createHeroModel, createEnemyModel, createWeaponModel } from './models.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game-canvas');
@@ -14,14 +16,16 @@ const minimap = $('minimap');
 const mapCtx = minimap.getContext('2d');
 
 const SAVE_KEY = 'eteria-rpg-save-v1';
-const GOALS = { kills: 6, crystals: 5 };
+const GOALS = { kills: 8, crystals: 6 };
 const WORLD_SIZE = 84;
 const HALF_WORLD = WORLD_SIZE / 2 - 2;
 
 const UI = {
   level: $('level-label'), gold: $('gold-label'), healthBar: $('health-bar'), healthText: $('health-text'), xpBar: $('xp-bar'),
   kills: $('quest-enemies'), crystals: $('quest-crystals'), questStatus: $('quest-status'), potionCount: $('potion-count'),
-  dashButton: $('dash-btn')
+  dashButton: $('dash-btn'), weaponButton: $('weapon-btn'), weaponLabel: $('weapon-label'),
+  chapter: $('chapter-label'), questTitle: $('quest-title'), bossHud: $('boss-hud'),
+  bossBar: $('boss-bar'), bossText: $('boss-text')
 };
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
@@ -82,6 +86,9 @@ class EteriaGame {
     this.dashTimer = 0;
     this.dashActive = 0;
     this.enemySpawnSerial = 0;
+    this.boss = null;
+    this.unlockedWeaponIds = new Set();
+    this.storyKey = 'intro';
 
     this.defaultState();
     this.createWorld();
@@ -101,6 +108,7 @@ class EteriaGame {
     this.state = {
       hp: 100, maxHp: 100, level: 1, xp: 0, xpNext: 100,
       gold: 0, potions: 3, kills: 0, crystals: 0,
+      weaponId: 'aether-blade', bossDefeated: false, chapter: 'intro',
       x: 0, z: 10, deaths: 0, startedAt: Date.now()
     };
   }
@@ -238,25 +246,51 @@ class EteriaGame {
   }
 
   createPlayer() {
-    this.player = new THREE.Group();
-    const armor = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: .55, metalness: .15 });
-    const cloth = new THREE.MeshStandardMaterial({ color: 0x312e81, roughness: .85 });
-    const skin = new THREE.MeshStandardMaterial({ color: 0xf3c6a5, roughness: .8 });
-    const metal = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: .28, metalness: .72 });
-
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(.46, .95, 5, 8), armor); body.position.y = 1.16;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(.39, 16, 12), skin); head.position.y = 2.08;
-    const cape = new THREE.Mesh(new THREE.BoxGeometry(.74, 1.2, .12), cloth); cape.position.set(0,1.26,.43); cape.rotation.x = -.10;
-    const sword = new THREE.Group();
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(.10, 1.35, .11), metal); blade.position.y = .68;
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(.52,.09,.11), metal); guard.position.y = .08;
-    sword.add(blade, guard); sword.position.set(.66, 1.05, -.08); sword.rotation.z = -.55; sword.rotation.x = -.12;
-    this.sword = sword;
-
-    for (const mesh of [body, head, cape, blade, guard]) mesh.castShadow = true;
-    this.player.add(body, head, cape, sword);
+    const model = createHeroModel(WEAPONS[0]);
+    this.player = model.root;
+    this.weaponSocket = model.weaponSocket;
+    this.heroRig = model;
     this.player.position.set(0, 0, 10);
     this.scene.add(this.player);
+    this.updateWeaponUnlocks(false);
+    this.equipWeapon(this.state.weaponId || 'aether-blade', false);
+  }
+
+  currentWeapon() {
+    return WEAPONS.find((weapon) => weapon.id === this.state.weaponId) || WEAPONS[0];
+  }
+
+  updateWeaponUnlocks(announce = true) {
+    const available = WEAPONS.filter((weapon) => weaponUnlocked(weapon, this.state));
+    const nextIds = new Set(available.map((weapon) => weapon.id));
+    if (announce) {
+      for (const weapon of available) {
+        if (!this.unlockedWeaponIds.has(weapon.id)) toast(`Nueva arma: ${weapon.name} ${weapon.icon}`);
+      }
+    }
+    this.unlockedWeaponIds = nextIds;
+    if (!nextIds.has(this.state.weaponId)) this.state.weaponId = available[0]?.id || WEAPONS[0].id;
+    return available;
+  }
+
+  equipWeapon(id, announce = true) {
+    const weapon = WEAPONS.find((item) => item.id === id);
+    if (!weapon || !weaponUnlocked(weapon, this.state)) return false;
+    this.state.weaponId = weapon.id;
+    while (this.weaponSocket.children.length) this.weaponSocket.remove(this.weaponSocket.children[0]);
+    this.weaponSocket.add(createWeaponModel(weapon));
+    if (announce) toast(`${weapon.icon} ${weapon.name} equipada`);
+    this.updateUI();
+    return true;
+  }
+
+  cycleWeapon() {
+    const available = this.updateWeaponUnlocks(false);
+    if (available.length < 2) return toast('Aún no has desbloqueado otra arma.');
+    const current = available.findIndex((weapon) => weapon.id === this.state.weaponId);
+    const next = available[(current + 1) % available.length];
+    this.equipWeapon(next.id);
+    vibrate(16);
   }
 
   resetWorldEntities() {
@@ -264,30 +298,65 @@ class EteriaGame {
     for (const crystal of this.crystals) this.scene.remove(crystal.mesh);
     this.enemies = [];
     this.crystals = [];
-    this.spawnEnemies(Math.max(3, 9 - this.state.kills));
-    this.spawnCrystals(Math.max(2, 8 - this.state.crystals));
+    this.boss = null;
+    this.spawnEnemies(Math.max(4, 11 - this.state.kills));
+    this.spawnCrystals(Math.max(2, 9 - this.state.crystals));
+    if (this.isBossReady() && !this.state.bossDefeated) this.spawnBoss();
   }
 
   spawnEnemies(count) {
     const spots = [[-22,-10],[14,-9],[-12,-28],[27,14],[-29,23],[11,25],[32,-5],[-32,-31],[4,-34],[24,29]];
     for (let i = 0; i < count; i++) {
       const spot = spots[(this.enemySpawnSerial++) % spots.length];
-      this.enemies.push(this.makeEnemy(spot[0] + rand(-2,2), spot[1] + rand(-2,2)));
+      const serial = this.enemySpawnSerial;
+      const type = serial % 5 === 0 ? 'guardian' : serial % 3 === 0 ? 'marauder' : 'shade';
+      this.enemies.push(this.makeEnemy(spot[0] + rand(-2,2), spot[1] + rand(-2,2), type));
     }
   }
 
-  makeEnemy(x, z) {
-    const group = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x24153d, emissive: 0x120522, emissiveIntensity: .6, roughness: .7 });
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff6b9a, emissive: 0xff174a, emissiveIntensity: 2.2 });
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(.42, .72, 4, 7), bodyMat); body.position.y = 1.02; body.castShadow = true;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(.46, 12, 9), bodyMat); head.position.y = 1.78; head.castShadow = true;
-    const eye1 = new THREE.Mesh(new THREE.SphereGeometry(.055, 7, 5), eyeMat); eye1.position.set(-.16,1.82,-.42);
-    const eye2 = eye1.clone(); eye2.position.x = .16;
-    group.add(body, head, eye1, eye2);
+  makeEnemy(x, z, type = 'shade') {
+    const archetype = ENEMY_ARCHETYPES[type] || ENEMY_ARCHETYPES.shade;
+    const model = createEnemyModel(archetype, false);
+    const group = model.group;
     group.position.set(x, 0, z);
     this.scene.add(group);
-    return { group, hp: 55 + this.state.level * 6, maxHp: 55 + this.state.level * 6, speed: rand(1.7,2.25), cooldown: rand(.3,1), spawn: new THREE.Vector3(x,0,z), phase: rand(0,Math.PI*2), bodyMat };
+    const hp = archetype.hp + this.state.level * archetype.hpPerLevel;
+    return {
+      group, hp, maxHp: hp,
+      speed: rand(archetype.speed[0], archetype.speed[1]),
+      cooldown: rand(.3,1),
+      attackCooldown: archetype.cooldown,
+      spawn: new THREE.Vector3(x,0,z),
+      phase: rand(0,Math.PI*2),
+      bodyMat: model.bodyMat,
+      archetype,
+      isBoss: false
+    };
+  }
+
+  spawnBoss() {
+    if (this.boss || this.state.bossDefeated) return;
+    const archetype = { ...BOSS };
+    const model = createEnemyModel(archetype, true);
+    const group = model.group;
+    group.position.set(27.5, 0, -25.5);
+    this.scene.add(group);
+    const hp = BOSS.hp + this.state.level * BOSS.hpPerLevel;
+    this.boss = {
+      group, hp, maxHp: hp,
+      speed: BOSS.speed,
+      cooldown: .5,
+      attackCooldown: [BOSS.cooldown, BOSS.cooldown + .25],
+      spawn: new THREE.Vector3(27.5,0,-25.5),
+      phase: 0,
+      bodyMat: model.bodyMat,
+      archetype: BOSS,
+      isBoss: true
+    };
+    this.enemies.push(this.boss);
+    this.storyKey = 'boss';
+    toast('Vharok ha despertado junto al portal.');
+    this.updateUI();
   }
 
   spawnCrystals(count) {
@@ -309,7 +378,10 @@ class EteriaGame {
     this.player.position.set(0,0,10);
     this.resetWorldEntities();
     this.startPlay();
-    toast('Tu aventura comienza. Sigue el sendero.');
+    this.storyKey = 'intro';
+    this.updateWeaponUnlocks(false);
+    this.equipWeapon('aether-blade', false);
+    toast('Liora: “Viajero, el Eclipse ha despertado. Recupera los fragmentos.”');
   }
 
   continueGame() {
@@ -318,6 +390,8 @@ class EteriaGame {
       this.defaultState();
       Object.assign(this.state, saved?.state || {});
       this.player.position.set(this.state.x || 0, 0, this.state.z || 10);
+      this.updateWeaponUnlocks(false);
+      this.equipWeapon(this.state.weaponId || 'aether-blade', false);
       this.resetWorldEntities();
       this.startPlay();
       toast('Partida recuperada.');
@@ -371,6 +445,12 @@ class EteriaGame {
       if (e.code === 'Space') { e.preventDefault(); this.attack(); }
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.dash();
       if (e.code === 'KeyQ') this.usePotion();
+      if (e.code === 'KeyR') this.cycleWeapon();
+      if (e.code.startsWith('Digit')) {
+        const slot = Number(e.code.slice(5)) - 1;
+        const available = this.updateWeaponUnlocks(false);
+        if (slot >= 0 && slot < available.length) this.equipWeapon(available[slot].id);
+      }
       if (e.code === 'Escape') this.paused ? this.resume() : this.pause();
     });
     addEventListener('keyup', (e) => { this.keys[e.code] = false; });
@@ -397,41 +477,76 @@ class EteriaGame {
     $('attack-btn').addEventListener('pointerdown', (e) => { e.preventDefault(); this.attack(); });
     $('dash-btn').addEventListener('pointerdown', (e) => { e.preventDefault(); this.dash(); });
     $('potion-btn').addEventListener('pointerdown', (e) => { e.preventDefault(); this.usePotion(); });
+    $('weapon-btn').addEventListener('pointerdown', (e) => { e.preventDefault(); this.cycleWeapon(); });
   }
 
   attack() {
     if (!this.active || this.paused || this.finished || this.attackTimer > 0) return;
-    this.attackTimer = .42;
-    this.sword.userData.swing = .22;
+    const weapon = this.currentWeapon();
+    this.attackTimer = weapon.cooldown;
+    this.weaponSocket.userData.swing = Math.min(.34, weapon.cooldown * .72 + .08);
     vibrate(18);
     const forward = this.lastMove.clone().normalize();
     let hit = false;
     for (const enemy of [...this.enemies]) {
       const delta = enemy.group.position.clone().sub(this.player.position);
       const distance = delta.length();
-      if (distance > 2.8) continue;
+      if (distance > weapon.range) continue;
       delta.y = 0;
       const dot = delta.normalize().dot(forward);
-      if (dot < -.18) continue;
+      if (dot < -.22) continue;
       hit = true;
-      const damage = 28 + (this.state.level - 1) * 7;
+      const critical = Math.random() < weapon.crit;
+      const base = weapon.damage + (this.state.level - 1) * 6;
+      const damage = Math.round(base * (critical ? 1.75 : 1));
       enemy.hp -= damage;
-      enemy.group.scale.set(1.18,.82,1.18);
-      enemy.bodyMat.emissiveIntensity = 2.6;
-      setTimeout(() => { if (enemy.group.parent) { enemy.group.scale.set(1,1,1); enemy.bodyMat.emissiveIntensity = .6; } }, 90);
+      enemy.group.scale.multiplyScalar(1.08);
+      enemy.bodyMat.emissiveIntensity = critical ? 3.4 : 2.4;
+      if (critical) toast(`¡CRÍTICO! ${damage} de daño`);
+      setTimeout(() => {
+        if (enemy.group.parent) {
+          const targetScale = enemy.isBoss ? BOSS.scale : enemy.archetype.scale;
+          enemy.group.scale.setScalar(targetScale || 1);
+          enemy.bodyMat.emissiveIntensity = enemy.isBoss ? .7 : .28;
+        }
+      }, 95);
       if (enemy.hp <= 0) this.killEnemy(enemy);
     }
-    if (hit) vibrate(32);
+    if (hit) {
+      vibrate(32);
+      this.updateUI();
+    }
   }
 
   killEnemy(enemy) {
     this.scene.remove(enemy.group);
     this.enemies = this.enemies.filter((e) => e !== enemy);
+
+    if (enemy.isBoss) {
+      this.boss = null;
+      this.state.bossDefeated = true;
+      this.state.gold += BOSS.gold;
+      this.gainXp(BOSS.xp);
+      this.updateWeaponUnlocks(true);
+      this.storyKey = 'finale';
+      toast('Vharok ha caído. El Portal del Eclipse está abierto.');
+      this.updateUI();
+      this.checkQuest();
+      return;
+    }
+
+    const archetype = enemy.archetype;
     this.state.kills += 1;
-    this.state.gold += 12 + Math.floor(Math.random() * 8);
-    if (Math.random() < .22) { this.state.potions++; toast('Una Sombra dejó una poción.'); }
-    else toast('Sombra derrotada +25 XP');
-    this.gainXp(25);
+    this.state.gold += Math.round(rand(archetype.gold[0], archetype.gold[1]));
+    if (Math.random() < .2) {
+      this.state.potions++;
+      toast(`${archetype.name} dejó una poción.`);
+    } else {
+      toast(`${archetype.name} derrotado +${archetype.xp} XP`);
+    }
+    this.gainXp(archetype.xp);
+    this.updateWeaponUnlocks(true);
+    this.updateStoryProgress();
     this.updateUI();
     this.checkQuest();
   }
@@ -464,7 +579,8 @@ class EteriaGame {
       this.state.maxHp += 18;
       this.state.hp = this.state.maxHp;
       this.state.potions++;
-      toast(`¡Nivel ${this.state.level}! Vida y daño aumentados.`);
+      toast(`¡Nivel ${this.state.level}! Vida, daño y arsenal mejorados.`);
+      this.updateWeaponUnlocks(true);
     }
   }
 
@@ -503,14 +619,23 @@ class EteriaGame {
     this.player.position.x = clamp(this.player.position.x, -HALF_WORLD, HALF_WORLD);
     this.player.position.z = clamp(this.player.position.z, -HALF_WORLD, HALF_WORLD);
 
-    if (this.sword.userData.swing > 0) {
-      this.sword.userData.swing -= dt;
-      const p = 1 - this.sword.userData.swing / .22;
-      this.sword.rotation.z = -0.55 - Math.sin(p * Math.PI) * 1.8;
-      this.sword.rotation.x = -.12 - Math.sin(p * Math.PI) * .35;
+    const gait = moving ? Math.sin(this.elapsed * 10) : 0;
+    this.heroRig.legL.rotation.x = gait * .55;
+    this.heroRig.legR.rotation.x = -gait * .55;
+    this.heroRig.armL.rotation.x = -gait * .35;
+    this.heroRig.armR.rotation.x = gait * .28;
+    this.heroRig.cape.rotation.x = -.08 + Math.abs(gait) * .08 + (this.dashActive > 0 ? .22 : 0);
+    this.heroRig.rune.rotation.z += dt * .7;
+
+    if (this.weaponSocket.userData.swing > 0) {
+      const duration = Math.min(.34, this.currentWeapon().cooldown * .72 + .08);
+      this.weaponSocket.userData.swing -= dt;
+      const p = 1 - this.weaponSocket.userData.swing / duration;
+      this.weaponSocket.rotation.z = -0.55 - Math.sin(p * Math.PI) * 1.85;
+      this.weaponSocket.rotation.x = -.12 - Math.sin(p * Math.PI) * .38;
     } else {
-      this.sword.rotation.z = THREE.MathUtils.lerp(this.sword.rotation.z, -.55, .18);
-      this.sword.rotation.x = THREE.MathUtils.lerp(this.sword.rotation.x, -.12, .18);
+      this.weaponSocket.rotation.z = THREE.MathUtils.lerp(this.weaponSocket.rotation.z, -.55, .18);
+      this.weaponSocket.rotation.x = THREE.MathUtils.lerp(this.weaponSocket.rotation.x, -.12, .18);
     }
   }
 
@@ -525,8 +650,9 @@ class EteriaGame {
         if (d > 1.45) enemy.group.position.addScaledVector(dir, enemy.speed * dt);
         enemy.group.rotation.y = Math.atan2(-dir.x, -dir.z);
         if (d < 1.65 && enemy.cooldown <= 0) {
-          enemy.cooldown = 1.15 + Math.random() * .35;
-          this.takeDamage(8 + this.state.level * 1.4);
+          const [minCd, maxCd] = enemy.attackCooldown;
+          enemy.cooldown = rand(minCd, maxCd);
+          this.takeDamage(enemy.archetype.damage + this.state.level * enemy.archetype.damagePerLevel);
         }
       } else {
         const t = this.elapsed * .32 + enemy.phase;
@@ -550,17 +676,45 @@ class EteriaGame {
         this.gainXp(12);
         vibrate(24);
         toast('Fragmento recuperado +12 XP');
+        this.updateWeaponUnlocks(true);
+        this.updateStoryProgress();
         this.updateUI();
         this.checkQuest();
       }
     }
   }
 
-  isPortalUnlocked() {
+  isBossReady() {
     return this.state.kills >= GOALS.kills && this.state.crystals >= GOALS.crystals;
   }
 
+  isPortalUnlocked() {
+    return !!this.state.bossDefeated;
+  }
+
+  updateStoryProgress() {
+    const previous = this.storyKey;
+    if (this.state.bossDefeated) this.storyKey = 'finale';
+    else if (this.boss || this.isBossReady()) this.storyKey = 'boss';
+    else if (this.state.kills >= 5 || this.state.crystals >= 4) this.storyKey = 'truth';
+    else if (this.state.kills >= 2 || this.state.crystals >= 2) this.storyKey = 'shadows';
+    else this.storyKey = 'intro';
+    this.state.chapter = this.storyKey;
+
+    if (previous !== this.storyKey) {
+      const messages = {
+        shadows: 'Liora: “No son bestias salvajes. Los antiguos guardianes están siendo controlados.”',
+        truth: 'Eldren: “Los fragmentos no sellan el Eclipse; mantienen dormido a su Guardián.”',
+        boss: 'El último fragmento vibra. Algo enorme despierta junto al portal.',
+        finale: 'El equilibrio vuelve al valle. Más allá del portal comienza otra región de Eteria.'
+      };
+      if (messages[this.storyKey]) toast(messages[this.storyKey]);
+    }
+  }
+
   checkQuest() {
+    this.updateStoryProgress();
+    if (this.isBossReady() && !this.state.bossDefeated && !this.boss) this.spawnBoss();
     if (this.isPortalUnlocked()) toast('¡Portal desbloqueado! Ve al noreste del valle.');
     this.save();
   }
@@ -612,10 +766,30 @@ class EteriaGame {
     UI.healthBar.style.width = `${(this.state.hp / this.state.maxHp) * 100}%`;
     UI.healthText.textContent = `${Math.ceil(this.state.hp)} / ${this.state.maxHp}`;
     UI.xpBar.style.width = `${(this.state.xp / this.state.xpNext) * 100}%`;
-    UI.kills.textContent = `Sombras: ${Math.min(this.state.kills, GOALS.kills)} / ${GOALS.kills}`;
+    UI.kills.textContent = `Enemigos: ${Math.min(this.state.kills, GOALS.kills)} / ${GOALS.kills}`;
     UI.crystals.textContent = `Fragmentos: ${Math.min(this.state.crystals, GOALS.crystals)} / ${GOALS.crystals}`;
     UI.potionCount.textContent = this.state.potions;
-    UI.questStatus.textContent = this.isPortalUnlocked() ? 'Portal abierto · ve al noreste ✦' : 'El portal sigue sellado.';
+
+    const story = STORY[this.storyKey] || STORY.intro;
+    UI.chapter.textContent = story.chapter;
+    UI.questTitle.textContent = story.title;
+    UI.questStatus.textContent = this.isPortalUnlocked()
+      ? 'Portal abierto · entra al noreste ✦'
+      : this.isBossReady()
+        ? 'Vharok protege el portal. Derrótalo.'
+        : story.status;
+
+    const weapon = this.currentWeapon();
+    UI.weaponLabel.textContent = `${weapon.icon} ${weapon.name}`;
+    UI.weaponButton.title = `Cambiar arma · ${weapon.name}`;
+
+    if (this.boss && !this.state.bossDefeated) {
+      UI.bossHud.classList.remove('hidden');
+      UI.bossBar.style.width = `${Math.max(0, this.boss.hp / this.boss.maxHp) * 100}%`;
+      UI.bossText.textContent = `${BOSS.name} · ${Math.max(0, Math.ceil(this.boss.hp))} / ${this.boss.maxHp}`;
+    } else {
+      UI.bossHud.classList.add('hidden');
+    }
   }
 
   drawMinimap() {
@@ -628,7 +802,10 @@ class EteriaGame {
     const s = (w*.43) / HALF_WORLD;
     const dot = (x,z,r,color) => { mapCtx.beginPath(); mapCtx.arc(x*s, z*s, r, 0, Math.PI*2); mapCtx.fillStyle=color; mapCtx.fill(); };
     for (const c of this.crystals) dot(c.mesh.position.x,c.mesh.position.z,2.4,'#67e8f9');
-    for (const e of this.enemies) dot(e.group.position.x,e.group.position.z,2.2,'#fb7185');
+    for (const e of this.enemies) {
+      const color = e.isBoss ? '#f0abfc' : e.archetype.id === 'guardian' ? '#a78bfa' : e.archetype.id === 'marauder' ? '#fb923c' : '#fb7185';
+      dot(e.group.position.x,e.group.position.z,e.isBoss ? 3.8 : 2.2,color);
+    }
     dot(this.portal.position.x,this.portal.position.z,3.1,this.isPortalUnlocked() ? '#fbbf24' : '#7c3aed');
     dot(this.player.position.x,this.player.position.z,3.8,'#f8fafc');
     mapCtx.restore();
