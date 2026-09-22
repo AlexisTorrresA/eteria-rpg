@@ -530,6 +530,7 @@ export class RPGSystems {
     const step = this.comboStep;
     game.attackTimer = weapon.cooldown * [0.82, .76, .92, 1.08][step];
     this.combatAnim = { kind: 'basic', step, weaponId: weapon.id, t: 0, duration: game.attackTimer + .12 };
+    game.heroAnimator?.playAttack(step);
     this.vibrate(step === 3 ? 32 : 16);
 
     const forward = game.lastMove.clone().setY(0).normalize();
@@ -569,6 +570,7 @@ export class RPGSystems {
 
     this.specialCooldown = special.cooldown * (this.game.progression?.getStats().specialCooldownMultiplier || 1);
     this.combatAnim = { kind: 'special', step: 0, weaponId: weapon.id, t: 0, duration: .72 };
+    game.heroAnimator?.playSpecial(weapon.id);
     game.attackTimer = Math.max(game.attackTimer, .62);
     const forward = game.lastMove.clone().setY(0).normalize();
     const origin = game.player.position.clone();
@@ -700,6 +702,7 @@ export class RPGSystems {
 
   updateCombatAnimation(dt, moving) {
     const g = this.game;
+    if (g.heroAnimator?.ready) return;
     const socket = g.weaponSocket;
     const rig = g.heroRig;
     const basePos = new THREE.Vector3(.62, 1.08, -.08);
