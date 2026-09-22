@@ -374,6 +374,8 @@ class EteriaGame {
 
   newGame() {
     this.defaultState();
+    this.unlockedWeaponIds = new Set();
+    this.storyKey = 'intro';
     localStorage.removeItem(SAVE_KEY);
     this.player.position.set(0,0,10);
     this.resetWorldEntities();
@@ -389,6 +391,8 @@ class EteriaGame {
       const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
       this.defaultState();
       Object.assign(this.state, saved?.state || {});
+      this.storyKey = this.state.chapter || 'intro';
+      this.updateStoryProgress();
       this.player.position.set(this.state.x || 0, 0, this.state.z || 10);
       this.updateWeaponUnlocks(false);
       this.equipWeapon(this.state.weaponId || 'aether-blade', false);
@@ -426,7 +430,7 @@ class EteriaGame {
     if (!this.active) return;
     this.state.x = Number(this.player.position.x.toFixed(2));
     this.state.z = Number(this.player.position.z.toFixed(2));
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 1, state: this.state, savedAt: Date.now() }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 2, state: this.state, savedAt: Date.now() }));
     continueBtn.classList.remove('hidden');
   }
 
