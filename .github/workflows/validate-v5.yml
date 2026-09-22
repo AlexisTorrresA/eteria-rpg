@@ -64,7 +64,30 @@ jobs:
             const json = glbJson(file);
             if (!(json.skins?.length > 0)) throw new Error(relative + ': no skin/skeleton');
             if (!(json.animations?.length >= 20)) throw new Error(relative + ': insufficient animations');
-            console.log(relative, { bytes: stat.size, skins: json.skins.length, animations: json.animations.length });
+
+            const names = (json.nodes || []).map((node) => node.name || '');
+            const normalized = names.map((name) => name.toLowerCase().replace(/[^a-z0-9]/g,''));
+            const hasRightHand = normalized.some((name) => name.includes('handr') || name.includes('righthand'));
+            const hasLeftHand = normalized.some((name) => name.includes('handl') || name.includes('lefthand'));
+            const hasHead = normalized.some((name) => name === 'head' || name.endsWith('head') || name.includes('headbone'));
+            if (!hasRightHand || !hasLeftHand || !hasHead) {
+              console.log('bone candidates', names.filter((name) => /hand|head|wrist/i.test(name)));
+              throw new Error(relative + ': expected hand/head bones missing');
+            }
+
+            const clips = (json.animations || []).map((animation) => animation.name || '');
+            if (!clips.some((name) => /idle/i.test(name))) throw new Error(relative + ': idle clip missing');
+            if (!clips.some((name) => /walk/i.test(name))) throw new Error(relative + ': walk clip missing');
+            if (!clips.some((name) => /run|sprint/i.test(name))) throw new Error(relative + ': run clip missing');
+            if (!clips.some((name) => /attack|melee/i.test(name))) throw new Error(relative + ': attack clip missing');
+
+            console.log(relative, {
+              bytes: stat.size,
+              skins: json.skins.length,
+              animations: json.animations.length,
+              bones: names.filter((name) => /hand|head|wrist/i.test(name)).slice(0,8),
+              sampleClips: clips.filter((name) => /idle|walk|run|attack|dodge|roll/i.test(name)).slice(0,12),
+            });
           }
 
           for (const name of ['sword_1handed','sword_2handed','dagger','axe_2handed','staff','crossbow_2handed']) {
