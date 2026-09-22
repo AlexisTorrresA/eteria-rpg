@@ -273,7 +273,7 @@ export function createHeroModel(weapon) {
   // More human head: elongated skull, ears, nose, beard and brows.
   const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.31,22,16), skin));
   head.position.set(0,2.25,-.02);
-  head.scale.set(.9,1.08,.9);
+  head.scale.set(.84,1.02,.86);
 
   for (const x of [-.295,.295]) {
     const ear = shadow(new THREE.Mesh(new THREE.SphereGeometry(.052,10,8), skinShadow));
@@ -282,9 +282,22 @@ export function createHeroModel(weapon) {
     root.add(ear);
   }
 
-  const nose = shadow(new THREE.Mesh(new THREE.ConeGeometry(.048,.15,6), skinShadow));
+  const nose = shadow(new THREE.Mesh(new THREE.ConeGeometry(.042,.14,7), skinShadow));
   nose.rotation.x = -Math.PI/2;
-  nose.position.set(0,2.25,-.31);
+  nose.position.set(0,2.25,-.285);
+
+  const chin = shadow(new THREE.Mesh(new THREE.SphereGeometry(.11,10,7), skinShadow));
+  chin.position.set(0,2.055,-.18);
+  chin.scale.set(1.15,.58,.72);
+
+  const cheekL = shadow(new THREE.Mesh(new THREE.SphereGeometry(.085,10,7), skin));
+  cheekL.position.set(-.145,2.20,-.235);
+  cheekL.scale.set(1.1,.62,.5);
+  const cheekR = cheekL.clone();
+  cheekR.position.x = .145;
+
+  const mouth = shadow(new THREE.Mesh(new THREE.BoxGeometry(.13,.018,.018), beardMat));
+  mouth.position.set(0,2.125,-.294);
 
   const jaw = shadow(new THREE.Mesh(new THREE.SphereGeometry(.255,16,10,0,Math.PI*2,Math.PI*.45,Math.PI*.45), beardMat));
   jaw.position.set(0,2.11,-.035);
@@ -347,10 +360,10 @@ export function createHeroModel(weapon) {
 
   // Shoulder armor: asymmetrical, less toy-like.
   const shoulderL = shadow(new THREE.Mesh(new THREE.SphereGeometry(.23,14,9), steelDark));
-  shoulderL.scale.set(1.35,.62,1.05);
+  shoulderL.scale.set(1.48,.64,1.08);
   shoulderL.position.set(-.47,1.67,-.01);
   const shoulderR = shadow(new THREE.Mesh(new THREE.SphereGeometry(.205,14,9), leather));
-  shoulderR.scale.set(1.28,.58,1.02);
+  shoulderR.scale.set(1.38,.6,1.05);
   shoulderR.position.set(.47,1.65,-.005);
 
   const shoulderBandL = shadow(new THREE.Mesh(new THREE.TorusGeometry(.2,.022,7,14,Math.PI), steel));
@@ -444,17 +457,19 @@ export function createHeroModel(weapon) {
   backRune.rotation.y = Math.PI;
 
   const weaponSocket = new THREE.Group();
-  weaponSocket.position.set(.62,1.08,-.08);
-  weaponSocket.rotation.set(-.12,0,-.55);
+  weaponSocket.position.set(.55,.83,-.06);
+  weaponSocket.rotation.set(-.08,0,-.48);
   weaponSocket.add(createWeaponModel(weapon));
 
   root.add(
     undershirt,torso,chest,chestCenter,strapA,strapB,belt,buckle,
-    head,nose,jaw,hair,hoodGear,crownGear,brow,cowlA,cowlB,
+    head,nose,chin,cheekL,cheekR,mouth,jaw,hair,hoodGear,crownGear,brow,cowlA,cowlB,
     shoulderL,shoulderR,shoulderBandL,
     armL,armR,legL,legR,cape,backpack,bedroll,
     pendantChain,pendant,pendantGem,backRune,weaponSocket
   );
+
+  root.scale.setScalar(1.06);
 
   root.traverse((obj) => {
     if (obj.isMesh) {
@@ -469,118 +484,314 @@ export function createHeroModel(weapon) {
   };
 }
 
-function addEnemyFace(group, glowColor, y, z) {
-  const eyeMat = mat(glowColor, { emissive: glowColor, emissiveIntensity: 2.5, roughness: .2 });
-  for (const x of [-.15,.15]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(.05,7,5), eyeMat);
+function addEnemyFace(group, glowColor, y, z, spacing = .12, scale = 1) {
+  const eyeMat = mat(glowColor, { emissive: glowColor, emissiveIntensity: 2.8, roughness: .15 });
+  for (const x of [-spacing, spacing]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(.035 * scale, 8, 6), eyeMat);
     eye.position.set(x,y,z);
+    eye.scale.y = .72;
     group.add(eye);
+  }
+}
+
+function taperedTorso(topRadius, bottomRadius, height, material, sides = 10) {
+  const mesh = shadow(new THREE.Mesh(new THREE.CylinderGeometry(topRadius, bottomRadius, height, sides), material));
+  mesh.scale.z = .72;
+  return mesh;
+}
+
+function enemyArm(material, length = .64, upper = .105, lower = .082) {
+  const arm = new THREE.Group();
+  const upperArm = shadow(new THREE.Mesh(new THREE.CylinderGeometry(upper, upper * 1.12, length * .52, 8), material));
+  upperArm.position.y = -length * .25;
+  const elbow = shadow(new THREE.Mesh(new THREE.SphereGeometry(upper * .95, 8, 6), material));
+  elbow.position.y = -length * .52;
+  const forearm = shadow(new THREE.Mesh(new THREE.CylinderGeometry(lower, upper, length * .5, 8), material));
+  forearm.position.y = -length * .73;
+  const hand = shadow(new THREE.Mesh(new THREE.SphereGeometry(lower * 1.08, 8, 6), material));
+  hand.position.y = -length;
+  arm.add(upperArm, elbow, forearm, hand);
+  return arm;
+}
+
+function enemyLeg(material, scale = 1) {
+  const leg = new THREE.Group();
+  const thigh = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.11*scale,.135*scale,.4*scale,8),material));
+  thigh.position.y = -.2*scale;
+  const knee = shadow(new THREE.Mesh(new THREE.SphereGeometry(.11*scale,8,6),material));
+  knee.position.y = -.42*scale;
+  const shin = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.085*scale,.11*scale,.37*scale,8),material));
+  shin.position.y = -.61*scale;
+  const foot = shadow(new THREE.Mesh(new THREE.BoxGeometry(.21*scale,.13*scale,.34*scale),material));
+  foot.position.set(0,-.82*scale,-.08*scale);
+  leg.add(thigh,knee,shin,foot);
+  return leg;
+}
+
+function addEnemyClaws(group, handPos, glowMaterial, spread = 1) {
+  for (let i=-1;i<=1;i++) {
+    const claw = shadow(new THREE.Mesh(new THREE.ConeGeometry(.018,.18,5),glowMaterial));
+    claw.position.set(handPos.x + i*.045*spread, handPos.y - .08, handPos.z - .08);
+    claw.rotation.x = Math.PI * .46;
+    group.add(claw);
   }
 }
 
 export function createEnemyModel(archetype, isBoss = false) {
   const group = new THREE.Group();
   const bodyMat = mat(archetype.body, {
-    roughness: .68,
-    metalness: archetype.id === 'guardian' || isBoss ? .34 : .08,
+    roughness: archetype.id === 'guardian' || isBoss ? .48 : .76,
+    metalness: archetype.id === 'guardian' || isBoss ? .38 : .08,
     emissive: archetype.body,
-    emissiveIntensity: isBoss ? .7 : .28
+    emissiveIntensity: isBoss ? .52 : .1
   });
+  const darkMat = mat(
+    archetype.id === 'ashArcher' || archetype.id === 'ashHound' ? 0x211918 : 0x161a24,
+    { roughness: .88, metalness: .05 }
+  );
+  const armorMat = mat(
+    archetype.id === 'marauder' ? 0x5a4035 : 0x455063,
+    { roughness: .48, metalness: .52 }
+  );
   const glowMat = mat(archetype.glow, {
-    roughness: .3,
-    metalness: .18,
+    roughness: .22,
+    metalness: .12,
     emissive: archetype.glow,
-    emissiveIntensity: isBoss ? 2.5 : 1.7
+    emissiveIntensity: isBoss ? 2.8 : 1.9
   });
 
-  if (archetype.id === 'ashArcher') {
-    const torso = shadow(new THREE.Mesh(new THREE.BoxGeometry(.78,.82,.42), bodyMat));
-    torso.position.y = 1.22;
-    const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.34,12,9), bodyMat));
-    head.position.y = 1.92;
-    const hood = shadow(new THREE.Mesh(new THREE.ConeGeometry(.44,.55,8), bodyMat));
-    hood.position.y = 2.2;
-    const bow = shadow(new THREE.Mesh(new THREE.TorusGeometry(.52,.035,6,18,Math.PI), glowMat));
-    bow.position.set(.56,1.38,-.05);
-    bow.rotation.set(0,Math.PI/2,Math.PI/2);
-    const string = shadow(new THREE.Mesh(new THREE.BoxGeometry(.02,1.0,.02), glowMat));
-    string.position.set(.56,1.38,-.05);
-    const quiver = shadow(new THREE.Mesh(new THREE.BoxGeometry(.18,.78,.22), bodyMat));
-    quiver.position.set(-.36,1.25,.28);
-    quiver.rotation.z=.18;
-    group.add(torso,head,hood,bow,string,quiver);
-    addEnemyFace(group, archetype.glow, 1.94, -.33);
-  } else if (archetype.id === 'ashHound') {
-    const body = shadow(new THREE.Mesh(new THREE.BoxGeometry(1.15,.5,.55), bodyMat));
-    body.position.y=.72;
-    const head = shadow(new THREE.Mesh(new THREE.BoxGeometry(.5,.5,.52), bodyMat));
-    head.position.set(0,1.02,-.64);
-    const jaw = shadow(new THREE.Mesh(new THREE.BoxGeometry(.36,.2,.42), glowMat));
-    jaw.position.set(0,.9,-.98);
-    for (const side of [-1,1]) {
-      const legF=shadow(new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,.6,6),bodyMat));
-      legF.position.set(side*.36,.35,-.34);
-      const legB=legF.clone(); legB.position.z=.34;
-      const horn=shadow(new THREE.Mesh(new THREE.ConeGeometry(.08,.36,6),glowMat));
-      horn.position.set(side*.19,1.34,-.66);horn.rotation.z=side*.22;
-      group.add(legF,legB,horn);
-    }
-    group.add(body,head,jaw);
-    addEnemyFace(group, archetype.glow, 1.06, -.91);
-  } else if (archetype.id === 'shade') {
-    const body = shadow(new THREE.Mesh(new THREE.CapsuleGeometry(.42,.72,4,8), bodyMat));
-    body.position.y = 1.03;
-    const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.46,12,9), bodyMat));
-    head.position.y = 1.82;
-    const hornL = shadow(new THREE.Mesh(new THREE.ConeGeometry(.1,.48,6), glowMat));
-    hornL.position.set(-.24,2.22,.02); hornL.rotation.z = -.3;
-    const hornR = hornL.clone(); hornR.position.x = .24; hornR.rotation.z = .3;
-    group.add(body,head,hornL,hornR);
-    addEnemyFace(group, archetype.glow, 1.84, -.42);
-  } else if (archetype.id === 'marauder') {
-    const torso = shadow(new THREE.Mesh(new THREE.BoxGeometry(.85,.82,.5), bodyMat));
-    torso.position.y = 1.25;
-    const head = shadow(new THREE.Mesh(new THREE.DodecahedronGeometry(.4,1), bodyMat));
-    head.position.y = 1.95;
-    const hood = shadow(new THREE.Mesh(new THREE.ConeGeometry(.5,.72,8), bodyMat));
-    hood.position.y = 2.18;
-    const blade = shadow(new THREE.Mesh(new THREE.BoxGeometry(.1,1.0,.1), glowMat));
-    blade.position.set(.62,1.05,-.08); blade.rotation.z = -.55;
-    const arm = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.1,.13,.7,8), bodyMat));
-    arm.position.set(.5,1.28,0); arm.rotation.z = -.2;
-    group.add(torso,head,hood,blade,arm);
-    addEnemyFace(group, archetype.glow, 1.96, -.36);
-  } else {
-    const torso = shadow(new THREE.Mesh(new THREE.BoxGeometry(1.0,.95,.58), bodyMat));
-    torso.position.y = 1.3;
-    const chest = shadow(new THREE.Mesh(new THREE.BoxGeometry(.72,.56,.1), glowMat));
-    chest.position.set(0,1.34,-.34);
-    const head = shadow(new THREE.Mesh(new THREE.BoxGeometry(.62,.58,.58), bodyMat));
-    head.position.y = 2.15;
-    const shoulderL = shadow(new THREE.Mesh(new THREE.BoxGeometry(.4,.34,.62), bodyMat));
-    shoulderL.position.set(-.64,1.58,0);
-    const shoulderR = shoulderL.clone(); shoulderR.position.x = .64;
-    const hornL = shadow(new THREE.Mesh(new THREE.ConeGeometry(.12,.58,6), glowMat));
-    hornL.position.set(-.28,2.62,0); hornL.rotation.z = -.22;
-    const hornR = hornL.clone(); hornR.position.x = .28; hornR.rotation.z = .22;
-    group.add(torso,chest,head,shoulderL,shoulderR,hornL,hornR);
-    addEnemyFace(group, archetype.glow, 2.18, -.31);
-  }
+  if (archetype.id === 'shade') {
+    const torso = taperedTorso(.31,.22,.82,bodyMat,10);
+    torso.position.set(0,1.26,.02);
+    torso.rotation.x = -.17;
 
-  if (isBoss) {
-    const crown = new THREE.Group();
-    for (let i=0;i<5;i++) {
-      const spike = shadow(new THREE.Mesh(new THREE.ConeGeometry(.09,.55,6), glowMat));
-      spike.position.set((i-2)*.18,2.72 + Math.abs(i-2)*.04,0);
-      spike.rotation.z = (i-2)*.08;
-      crown.add(spike);
+    const mantle = shadow(new THREE.Mesh(new THREE.SphereGeometry(.37,12,8,0,Math.PI*2,0,Math.PI*.52),darkMat));
+    mantle.position.set(0,1.67,.04);
+    mantle.scale.set(1.18,.55,.88);
+
+    const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.25,14,10),bodyMat));
+    head.position.set(0,1.97,-.08);
+    head.scale.set(.82,1.08,.86);
+
+    const jaw = shadow(new THREE.Mesh(new THREE.SphereGeometry(.19,12,8),darkMat));
+    jaw.position.set(0,1.84,-.14);
+    jaw.scale.set(.92,.55,.86);
+
+    for (const side of [-1,1]) {
+      const arm = enemyArm(bodyMat,.86,.085,.055);
+      arm.position.set(side*.34,1.55,0);
+      arm.rotation.z = side * .34;
+      arm.rotation.x = -.12;
+      group.add(arm);
+      addEnemyClaws(group,new THREE.Vector3(side*.57,.72,-.08),glowMat,.9);
+
+      const leg = enemyLeg(bodyMat,.84);
+      leg.position.set(side*.15,.93,.07);
+      leg.rotation.z = side*.06;
+      group.add(leg);
+
+      const horn = shadow(new THREE.Mesh(new THREE.ConeGeometry(.045,.29,6),glowMat));
+      horn.position.set(side*.16,2.26,-.02);
+      horn.rotation.z = side*.22;
+      group.add(horn);
     }
-    const ring = shadow(new THREE.Mesh(new THREE.TorusGeometry(.68,.055,7,22), glowMat));
-    ring.position.y = 2.36;
-    ring.rotation.x = Math.PI/2;
-    group.add(crown,ring);
+
+    const spineGlow = shadow(new THREE.Mesh(new THREE.BoxGeometry(.055,.55,.055),glowMat));
+    spineGlow.position.set(0,1.31,.22);
+    spineGlow.rotation.x = -.16;
+    group.add(torso,mantle,head,jaw,spineGlow);
+    addEnemyFace(group,archetype.glow,2.0,-.30,.095,.9);
+  } else if (archetype.id === 'marauder') {
+    const torso = taperedTorso(.38,.29,.86,bodyMat,10);
+    torso.position.y = 1.35;
+    const breast = shadow(new THREE.Mesh(new THREE.BoxGeometry(.56,.44,.08),armorMat));
+    breast.position.set(0,1.45,-.27);
+
+    const belt = shadow(new THREE.Mesh(new THREE.BoxGeometry(.66,.11,.45),darkMat));
+    belt.position.y = .96;
+
+    const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.27,14,10),bodyMat));
+    head.position.set(0,2.02,-.02);
+    head.scale.set(.88,1.05,.9);
+
+    const hood = shadow(new THREE.Mesh(new THREE.SphereGeometry(.33,14,10,0,Math.PI*2,0,Math.PI*.68),darkMat));
+    hood.position.set(0,2.09,.02);
+
+    const shoulderL = shadow(new THREE.Mesh(new THREE.SphereGeometry(.19,10,8),armorMat));
+    shoulderL.scale.set(1.35,.58,1);
+    shoulderL.position.set(-.46,1.64,0);
+    const shoulderR = shoulderL.clone();
+    shoulderR.position.x = .46;
+
+    for (const side of [-1,1]) {
+      const arm = enemyArm(bodyMat,.68,.095,.07);
+      arm.position.set(side*.44,1.57,0);
+      arm.rotation.z = side*.16;
+      group.add(arm);
+      const leg = enemyLeg(darkMat,.95);
+      leg.position.set(side*.18,.93,0);
+      group.add(leg);
+    }
+
+    const sword = new THREE.Group();
+    const blade = bladeFromPoints([[-.055,.1],[-.07,.72],[0,.98],[.07,.72],[.055,.1]],.055,glowMat,.008);
+    const guard = shadow(new THREE.Mesh(new THREE.BoxGeometry(.3,.055,.07),armorMat));
+    guard.position.y=.08;
+    const grip = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.032,.038,.28,7),darkMat));
+    grip.position.y=-.1;
+    sword.add(blade,guard,grip);
+    sword.position.set(.57,1.0,-.05);
+    sword.rotation.z=-.58;
+
+    group.add(torso,breast,belt,head,hood,shoulderL,shoulderR,sword);
+    addEnemyFace(group,archetype.glow,2.03,-.27,.095,.88);
+  } else if (archetype.id === 'guardian' || isBoss) {
+    const scale = isBoss ? 1.08 : 1;
+    const torso = taperedTorso(.48*scale,.35*scale,.98*scale,bodyMat,12);
+    torso.position.y = 1.4*scale;
+
+    const breast = shadow(new THREE.Mesh(new THREE.BoxGeometry(.7*scale,.58*scale,.11*scale),armorMat));
+    breast.position.set(0,1.45*scale,-.34*scale);
+
+    const core = shadow(new THREE.Mesh(new THREE.OctahedronGeometry(.12*scale,0),glowMat));
+    core.position.set(0,1.48*scale,-.41*scale);
+
+    const helmet = shadow(new THREE.Mesh(new THREE.SphereGeometry(.31*scale,14,10),armorMat));
+    helmet.position.set(0,2.18*scale,0);
+    helmet.scale.set(.95,1.03,.9);
+
+    const facePlate = shadow(new THREE.Mesh(new THREE.BoxGeometry(.42*scale,.28*scale,.08*scale),darkMat));
+    facePlate.position.set(0,2.12*scale,-.28*scale);
+
+    for (const side of [-1,1]) {
+      const shoulder = shadow(new THREE.Mesh(new THREE.SphereGeometry(.28*scale,12,8),armorMat));
+      shoulder.scale.set(1.45,.62,1.08);
+      shoulder.position.set(side*.58*scale,1.72*scale,0);
+      group.add(shoulder);
+
+      const arm = enemyArm(armorMat,.76*scale,.125*scale,.09*scale);
+      arm.position.set(side*.57*scale,1.58*scale,0);
+      arm.rotation.z = side*.13;
+      group.add(arm);
+
+      const leg = enemyLeg(darkMat,1.07*scale);
+      leg.position.set(side*.21*scale,.97*scale,.02);
+      group.add(leg);
+
+      const horn = shadow(new THREE.Mesh(new THREE.ConeGeometry(.07*scale,.38*scale,6),glowMat));
+      horn.position.set(side*.21*scale,2.55*scale,.02);
+      horn.rotation.z = side*.2;
+      group.add(horn);
+    }
+
+    const shield = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.38*scale,.38*scale,.09*scale,8),armorMat));
+    shield.rotation.x = Math.PI/2;
+    shield.position.set(-.72*scale,1.12*scale,-.05);
+    const shieldRune = shadow(new THREE.Mesh(new THREE.RingGeometry(.14*scale,.2*scale,10),glowMat));
+    shieldRune.position.set(-.72*scale,1.12*scale,-.1);
+    group.add(torso,breast,core,helmet,facePlate,shield,shieldRune);
+    addEnemyFace(group,archetype.glow,2.15*scale,-.34*scale,.1*scale,.85*scale);
+
+    if (isBoss) {
+      const crown = new THREE.Group();
+      for (let i=0;i<5;i++) {
+        const spike = shadow(new THREE.Mesh(new THREE.ConeGeometry(.055*scale,.48*scale,6),glowMat));
+        spike.position.set((i-2)*.13*scale,2.65*scale + Math.abs(i-2)*.035,0);
+        spike.rotation.z=(i-2)*.08;
+        crown.add(spike);
+      }
+      const ring = shadow(new THREE.Mesh(new THREE.TorusGeometry(.5*scale,.035*scale,8,24),glowMat));
+      ring.position.y = 2.28*scale;
+      ring.rotation.x = Math.PI/2;
+      group.add(crown,ring);
+    }
+  } else if (archetype.id === 'ashArcher') {
+    const torso = taperedTorso(.31,.24,.78,bodyMat,10);
+    torso.position.y = 1.32;
+    const cloak = shadow(new THREE.Mesh(new THREE.ConeGeometry(.42,.86,10,1,true),darkMat));
+    cloak.position.set(0,1.24,.12);
+    cloak.rotation.x = Math.PI;
+
+    const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.25,14,10),bodyMat));
+    head.position.set(0,2.0,-.03);
+    const hood = shadow(new THREE.Mesh(new THREE.SphereGeometry(.31,14,10,0,Math.PI*2,0,Math.PI*.7),darkMat));
+    hood.position.set(0,2.06,.02);
+
+    for (const side of [-1,1]) {
+      const arm = enemyArm(bodyMat,.7,.085,.06);
+      arm.position.set(side*.34,1.56,0);
+      arm.rotation.z = side*.12;
+      group.add(arm);
+      const leg = enemyLeg(darkMat,.92);
+      leg.position.set(side*.16,.91,0);
+      group.add(leg);
+    }
+
+    const bow = new THREE.Group();
+    const arc = shadow(new THREE.Mesh(new THREE.TorusGeometry(.46,.028,6,22,Math.PI),glowMat));
+    arc.rotation.set(0,Math.PI/2,Math.PI/2);
+    const string = shadow(new THREE.Mesh(new THREE.BoxGeometry(.018,.91,.018),glowMat));
+    bow.add(arc,string);
+    bow.position.set(.52,1.37,-.08);
+
+    const quiver = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.08,.1,.66,8),darkMat));
+    quiver.position.set(-.32,1.37,.28);
+    quiver.rotation.z=.16;
+
+    group.add(torso,cloak,head,hood,bow,quiver);
+    addEnemyFace(group,archetype.glow,2.02,-.26,.09,.84);
+  } else if (archetype.id === 'ashHound') {
+    const body = shadow(new THREE.Mesh(new THREE.CapsuleGeometry(.24,.78,5,9),bodyMat));
+    body.rotation.z = Math.PI/2;
+    body.position.set(0,.78,.08);
+    body.scale.set(1,1,.82);
+
+    const chest = shadow(new THREE.Mesh(new THREE.SphereGeometry(.32,12,9),bodyMat));
+    chest.position.set(0,.82,-.32);
+    chest.scale.set(.9,1.08,.9);
+
+    const neck = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.16,.21,.38,8),darkMat));
+    neck.position.set(0,1.02,-.55);
+    neck.rotation.x = -.62;
+
+    const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.24,12,9),bodyMat));
+    head.position.set(0,1.12,-.77);
+    head.scale.set(.86,.82,1.15);
+
+    const muzzle = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.12,.16,.34,8),darkMat));
+    muzzle.rotation.x = Math.PI/2;
+    muzzle.position.set(0,1.05,-1.02);
+
+    for (const side of [-1,1]) {
+      const ear = shadow(new THREE.Mesh(new THREE.ConeGeometry(.06,.28,6),glowMat));
+      ear.position.set(side*.14,1.39,-.78);
+      ear.rotation.z = side*.18;
+      group.add(ear);
+
+      for (const z of [-.38,.36]) {
+        const leg = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.055,.075,.44,7),darkMat));
+        leg.position.set(side*.22,.42,z);
+        leg.rotation.z = side*.05;
+        const paw = shadow(new THREE.Mesh(new THREE.BoxGeometry(.16,.1,.23),bodyMat));
+        paw.position.set(side*.22,.18,z-.04);
+        group.add(leg,paw);
+      }
+    }
+
+    const tail = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.035,.065,.65,7),darkMat));
+    tail.position.set(0,.9,.65);
+    tail.rotation.x = -.82;
+
+    group.add(body,chest,neck,head,muzzle,tail);
+    addEnemyFace(group,archetype.glow,1.15,-.98,.09,.8);
   }
 
   group.scale.setScalar(archetype.scale ?? 1);
+  group.traverse((obj) => {
+    if (obj.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+    }
+  });
   return { group, bodyMat, glowMat };
 }

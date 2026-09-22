@@ -7,6 +7,8 @@ import { ProgressionSystems } from './progressionSystems.js';
 import { WorldExpansion } from './worldExpansion.js';
 import { attachRiggedHero } from './heroAsset.js';
 
+const RIGGED_HERO_EXPERIMENTAL = new URLSearchParams(location.search).get('rig') === '1';
+
 const $ = (id) => document.getElementById(id);
 const canvas = $('game-canvas');
 const loadingScreen = $('loading-screen');
@@ -64,7 +66,7 @@ class EteriaGame {
     this.renderer.setSize(innerWidth, innerHeight, false);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.12;
+    this.renderer.toneMappingExposure = 1.22;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -72,8 +74,8 @@ class EteriaGame {
     this.scene.background = new THREE.Color(0x16243a);
     this.scene.fog = new THREE.FogExp2(0x16243a, 0.018);
 
-    this.camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 180);
-    this.camera.position.set(0, 9, 12);
+    this.camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 180);
+    this.camera.position.set(0, 6.4, 9.2);
 
     this.clock = new THREE.Clock();
     this.elapsed = 0;
@@ -121,11 +123,11 @@ class EteriaGame {
   }
 
   createWorld() {
-    const hemi = new THREE.HemisphereLight(0x9bd7ff, 0x13210f, 2.1);
+    const hemi = new THREE.HemisphereLight(0xb7dcff, 0x172017, 1.5);
     this.scene.add(hemi);
     this.hemi = hemi;
 
-    const sun = new THREE.DirectionalLight(0xfff1cc, 2.6);
+    const sun = new THREE.DirectionalLight(0xffe3b3, 3.15);
     sun.position.set(-18, 28, 14);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
@@ -133,10 +135,23 @@ class EteriaGame {
     sun.shadow.camera.right = 32;
     sun.shadow.camera.top = 32;
     sun.shadow.camera.bottom = -32;
+    sun.shadow.bias = -0.00028;
+    sun.shadow.normalBias = 0.025;
+    sun.shadow.radius = 2;
     this.scene.add(sun);
     this.sun = sun;
 
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x284a35, roughness: 0.95, metalness: 0.02 });
+    const fill = new THREE.DirectionalLight(0x8ab4ff, 1.15);
+    fill.position.set(14, 12, -10);
+    this.scene.add(fill);
+    this.fillLight = fill;
+
+    const rim = new THREE.PointLight(0x80d8ff, 4.2, 8, 2);
+    rim.position.set(0, 3.1, 3.6);
+    this.scene.add(rim);
+    this.heroRim = rim;
+
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x214f38, roughness: 0.93, metalness: 0.01 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 1, 1), groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
@@ -144,7 +159,7 @@ class EteriaGame {
 
     const path = new THREE.Mesh(
       new THREE.PlaneGeometry(8, 72),
-      new THREE.MeshStandardMaterial({ color: 0x5f5a49, roughness: 1 })
+      new THREE.MeshStandardMaterial({ color: 0x706b58, roughness: .94, metalness: .01 })
     );
     path.rotation.x = -Math.PI / 2;
     path.rotation.z = -0.22;
@@ -266,13 +281,15 @@ class EteriaGame {
     this.updateWeaponUnlocks(false);
     this.equipWeapon(this.state.weaponId || 'aether-blade', false);
 
-    attachRiggedHero(this, this.currentWeapon()).then((controller) => {
-      if (!controller) return;
-      this.heroAnimator = controller;
-      this.heroAnimator.setWeapon(this.currentWeapon());
-      this.progression?.applyEquipmentVisual();
-      toast('Modelo GLTF riggeado cargado.');
-    });
+    if (RIGGED_HERO_EXPERIMENTAL) {
+      attachRiggedHero(this, this.currentWeapon()).then((controller) => {
+        if (!controller) return;
+        this.heroAnimator = controller;
+        this.heroAnimator.setWeapon(this.currentWeapon());
+        this.progression?.applyEquipmentVisual();
+        toast('Modo experimental GLTF activo.');
+      });
+    }
   }
 
   currentWeapon() {
@@ -639,7 +656,7 @@ class EteriaGame {
       const multiplier = this.dashActive > 0 ? 3.5 : 1;
       this.player.position.addScaledVector(dir, speed * multiplier * dt);
       this.player.rotation.y = Math.atan2(-dir.x, -dir.z);
-      this.player.position.y = Math.abs(Math.sin(this.elapsed * 10)) * .045;
+      this.player.position.y = Math.abs(Math.sin(this.elapsed * 10)) * .022;
     } else {
       this.player.position.y = THREE.MathUtils.lerp(this.player.position.y, 0, .2);
     }
@@ -652,13 +669,17 @@ class EteriaGame {
     }
 
     if (!this.heroAnimator?.ready) {
-      const gait = moving ? Math.sin(this.elapsed * 10) : 0;
-      this.heroRig.legL.rotation.x = gait * .55;
-      this.heroRig.legR.rotation.x = -gait * .55;
-      this.heroRig.armL.rotation.x = -gait * .35;
-      this.heroRig.armR.rotation.x = gait * .28;
-      this.heroRig.cape.rotation.x = -.08 + Math.abs(gait) * .08 + (this.dashActive > 0 ? .22 : 0);
-      this.heroRig.rune.rotation.z += dt * .7;
+      const gait = moving ? Math.sin(this.elapsed * 9.2) : 0;
+      const stride = moving ? .44 : 0;
+      this.heroRig.legL.rotation.x = THREE.MathUtils.lerp(this.heroRig.legL.rotation.x, gait * stride, .34);
+      this.heroRig.legR.rotation.x = THREE.MathUtils.lerp(this.heroRig.legR.rotation.x, -gait * stride, .34);
+      this.heroRig.armL.rotation.x = THREE.MathUtils.lerp(this.heroRig.armL.rotation.x, -gait * .24, .3);
+      this.heroRig.armR.rotation.x = THREE.MathUtils.lerp(this.heroRig.armR.rotation.x, gait * .18, .3);
+      this.heroRig.torso.rotation.x = THREE.MathUtils.lerp(this.heroRig.torso.rotation.x, moving ? .035 : 0, .18);
+      this.heroRig.torso.rotation.z = THREE.MathUtils.lerp(this.heroRig.torso.rotation.z, moving ? -gait * .018 : 0, .18);
+      this.heroRig.chest.rotation.z = THREE.MathUtils.lerp(this.heroRig.chest.rotation.z, moving ? gait * .025 : 0, .18);
+      this.heroRig.cape.rotation.x = -.08 + Math.abs(gait) * .045 + (this.dashActive > 0 ? .18 : 0);
+      this.heroRig.rune.rotation.z += dt * .55;
     }
 
     this.rpg?.updateCombatAnimation(dt, moving);
@@ -796,10 +817,18 @@ class EteriaGame {
   }
 
   updateCamera(dt) {
-    const targetPos = new THREE.Vector3(this.player.position.x, 8.4, this.player.position.z + 10.8);
-    const smoothing = 1 - Math.pow(.001, dt);
+    const targetPos = new THREE.Vector3(this.player.position.x, 6.35, this.player.position.z + 8.65);
+    const smoothing = 1 - Math.pow(.0015, dt);
     this.camera.position.lerp(targetPos, smoothing);
-    this.camera.lookAt(this.player.position.x, 1.2, this.player.position.z - 1.8);
+    this.camera.lookAt(this.player.position.x, 1.35, this.player.position.z - 1.35);
+
+    if (this.heroRim) {
+      this.heroRim.position.set(
+        this.player.position.x + 1.5,
+        this.player.position.y + 3.1,
+        this.player.position.z + 2.2
+      );
+    }
   }
 
   updateAtmosphere() {
@@ -810,8 +839,10 @@ class EteriaGame {
       this.scene.background.copy(ash).lerp(ember, .2 + cycle * .22);
       this.scene.fog.color.copy(this.scene.background);
       this.scene.fog.density = .024;
-      this.hemi.intensity = 1.05 + cycle * .38;
-      this.sun.intensity = 1.35 + cycle * .45;
+      this.hemi.intensity = .95 + cycle * .28;
+      this.sun.intensity = 2.1 + cycle * .5;
+      if (this.fillLight) this.fillLight.intensity = .72 + cycle * .18;
+      if (this.heroRim) this.heroRim.intensity = 3.3;
       this.sun.color.setHex(0xffb36b);
       this.sun.position.set(95,24,18);
     } else {
@@ -820,8 +851,10 @@ class EteriaGame {
       this.scene.background.copy(dusk).lerp(day, .35 + cycle * .48);
       this.scene.fog.color.copy(this.scene.background);
       this.scene.fog.density = .018;
-      this.hemi.intensity = 1.45 + cycle * .9;
-      this.sun.intensity = 1.8 + cycle * 1.05;
+      this.hemi.intensity = 1.22 + cycle * .42;
+      this.sun.intensity = 2.55 + cycle * .78;
+      if (this.fillLight) this.fillLight.intensity = .95 + cycle * .28;
+      if (this.heroRim) this.heroRim.intensity = 4.2;
       this.sun.color.setHex(0xfff1cc);
       this.sun.position.x = Math.cos(this.elapsed * .025) * 26;
     }
@@ -898,6 +931,7 @@ class EteriaGame {
   onResize() {
     const w = innerWidth, h = innerHeight;
     this.camera.aspect = w / h;
+    this.camera.fov = h > w ? 46 : 50;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, w < 900 ? 1.6 : 1.9));

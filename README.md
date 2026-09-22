@@ -2,6 +2,26 @@
 
 RPG 3D mobile-first hecho con **JavaScript + Three.js**, empaquetable como APK Android con Capacitor y servido por **FastAPI**.
 
+## Eteria 4.3
+
+Actualización centrada en corregir la lectura visual observada en móvil:
+
+- el héroe procedural detallado V4.1 vuelve a ser el **modelo principal por defecto**;
+- el GLTF 4.2 se conserva como modo experimental y puede activarse con `?rig=1`;
+- rostro refinado con cabeza menos esférica, mandíbula, pómulos, boca y proporciones más humanas;
+- arma alineada físicamente con la mano del héroe;
+- animación procedural de caminar más natural y con menos rebote;
+- cámara móvil más baja, cercana y con FOV reducido en orientación vertical;
+- iluminación de tres puntos: sol cálido, fill frío y rim light alrededor del héroe;
+- sombras suavizadas y mejor contraste entre camino, suelo y personajes;
+- Sombra Errante rehecha con torso, brazos largos, piernas y garras;
+- Saqueador rehecho con armadura, extremidades y espada legible;
+- Guardián/Vharok rehechos con cuerpo articulado, armadura, escudo y núcleo;
+- Arquero de Ceniza rehecho con silueta humanoide, capa, piernas, brazos, arco y carcaj;
+- Sabueso de Escoria convertido en cuadrúpedo con cuerpo, cuello, hocico, patas, orejas y cola.
+
+La infraestructura GLTF, PBR, skeleton y mocap de V4.2 permanece en el proyecto para seguir desarrollándola sin empeorar la experiencia visual actual.
+
 ## Eteria 4.2
 
 La versión 4.2 añade una segunda capa de personaje preparada para producción:
