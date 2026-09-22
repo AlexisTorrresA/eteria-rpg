@@ -60,13 +60,22 @@ function findClip(clips, semantic, exclude = new Set()) {
 function findNode(root, side, kind = 'hand') {
   const nodes = [];
   root.traverse((node) => nodes.push(node));
-  const exact = side === 'right'
-    ? ['handr','righthand','rhand','wrist_r','righthandbone']
-    : ['handl','lefthand','lhand','wrist_l','lefthandbone'];
 
+  // KayKit provides explicit handslot.l / handslot.r attachment nodes.
+  const preferred = side === 'right'
+    ? ['handslotr','righthandslot','weaponslotr']
+    : ['handslotl','lefthandslot','weaponslotl'];
   for (const node of nodes) {
     const n = normalizedName(node.name);
-    if (exact.some((part) => n.includes(normalizedName(part)))) return node;
+    if (preferred.some((part) => n === part || n.includes(part))) return node;
+  }
+
+  const exact = side === 'right'
+    ? ['handr','righthand','rhand','wristr','righthandbone']
+    : ['handl','lefthand','lhand','wristl','lefthandbone'];
+  for (const node of nodes) {
+    const n = normalizedName(node.name);
+    if (exact.some((part) => n === normalizedName(part) || n.includes(normalizedName(part)))) return node;
   }
 
   const sideTokens = side === 'right' ? ['right','r'] : ['left','l'];
@@ -258,6 +267,10 @@ export class KayKitHeroController {
 
     const model = cloneSkeleton(gltf.scene);
     model.name = `KayKitHero_${variant}`;
+    model.traverse((node) => {
+      const n = normalizedName(node.name);
+      if (n.includes('offhand') && !node.isBone) node.visible = false;
+    });
     prepareMaterials(model);
     fitHeight(model, 2.48);
     model.rotation.y = Math.PI;
