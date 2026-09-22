@@ -746,7 +746,7 @@ class EteriaGame {
   checkQuest() {
     this.updateStoryProgress();
     if (this.isBossReady() && !this.state.bossDefeated && !this.boss) this.spawnBoss();
-    if (this.isPortalUnlocked()) toast('¡Portal desbloqueado! Ve al noreste del valle.');
+    if (this.isPortalUnlocked() && this.state.currentRegion !== 'ashen-wastes') toast('¡Portal desbloqueado! Ve al noreste del valle.');
     this.save();
   }
 
@@ -815,8 +815,13 @@ class EteriaGame {
     UI.healthBar.style.width = `${(this.state.hp / this.state.maxHp) * 100}%`;
     UI.healthText.textContent = `${Math.ceil(this.state.hp)} / ${this.state.maxHp}`;
     UI.xpBar.style.width = `${(this.state.xp / this.state.xpNext) * 100}%`;
-    UI.kills.textContent = `Enemigos: ${Math.min(this.state.kills, GOALS.kills)} / ${GOALS.kills}`;
-    UI.crystals.textContent = `Fragmentos: ${Math.min(this.state.crystals, GOALS.crystals)} / ${GOALS.crystals}`;
+    if (this.state.currentRegion === 'ashen-wastes') {
+      UI.kills.textContent = `Criaturas de Ceniza: ${Math.min(this.state.questProgress?.ashKills || 0, 6)} / 6`;
+      UI.crystals.textContent = `Objetivo: alcanza el faro oriental`;
+    } else {
+      UI.kills.textContent = `Enemigos: ${Math.min(this.state.kills, GOALS.kills)} / ${GOALS.kills}`;
+      UI.crystals.textContent = `Fragmentos: ${Math.min(this.state.crystals, GOALS.crystals)} / ${GOALS.crystals}`;
+    }
     UI.potionCount.textContent = this.state.potions;
 
     const story = STORY[this.storyKey] || STORY.intro;
