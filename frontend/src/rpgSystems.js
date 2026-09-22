@@ -665,6 +665,7 @@ export class RPGSystems {
     const game = this.game;
     enemy.hp -= damage;
     enemy.bodyMat.emissiveIntensity = critical ? 3.6 : 2.4;
+    enemy.authoredVisual?.flash(color, critical);
     const baseScale = enemy.isBoss ? 1.72 : (enemy.archetype.scale || 1);
     enemy.group.scale.setScalar(baseScale * 1.06);
 
