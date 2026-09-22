@@ -2,6 +2,19 @@
 
 RPG 3D mobile-first hecho con **JavaScript + Three.js**, empaquetable como APK Android con Capacitor y servido por **FastAPI**.
 
+## Eteria 4.1
+
+La actualización 4.1 rehace la identidad visual del protagonista y su arsenal usando como referencia la guía de arte creada para Eteria:
+
+- anatomía y proporciones humanas más naturales;
+- rostro más definido con nariz, orejas, cejas, barba, iris y mechones de cabello;
+- cuero, tela, acero, bronce, correas, hombreras y capas diferenciadas por material;
+- mochila, petates, bolsos, cinturones, colgante y piezas de armadura visibles;
+- capucha lunar y corona del Eclipse como piezas reales sobre la cabeza;
+- equipo de pecho y talismanes siguen alterando visualmente al héroe;
+- rediseño completo de las seis armas con hojas extruidas, filos, guardas, collares, empuñaduras envueltas y runas;
+- espada, hacha, lanza, dagas, martillo y arma del Eclipse conservan exactamente sus estadísticas, combos y técnicas especiales.
+
 ## Eteria 4.0
 
 La versión 4.0 transforma la demo original en una base de action-RPG con progresión persistente:
