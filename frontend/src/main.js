@@ -135,6 +135,9 @@ class EteriaGame {
     sun.shadow.camera.right = 32;
     sun.shadow.camera.top = 32;
     sun.shadow.camera.bottom = -32;
+    sun.shadow.bias = -0.00028;
+    sun.shadow.normalBias = 0.025;
+    sun.shadow.radius = 2;
     this.scene.add(sun);
     this.sun = sun;
 
@@ -148,7 +151,7 @@ class EteriaGame {
     this.scene.add(rim);
     this.heroRim = rim;
 
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x284a35, roughness: 0.95, metalness: 0.02 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x214f38, roughness: 0.93, metalness: 0.01 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 1, 1), groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
@@ -156,7 +159,7 @@ class EteriaGame {
 
     const path = new THREE.Mesh(
       new THREE.PlaneGeometry(8, 72),
-      new THREE.MeshStandardMaterial({ color: 0x5f5a49, roughness: 1 })
+      new THREE.MeshStandardMaterial({ color: 0x706b58, roughness: .94, metalness: .01 })
     );
     path.rotation.x = -Math.PI / 2;
     path.rotation.z = -0.22;
@@ -653,7 +656,7 @@ class EteriaGame {
       const multiplier = this.dashActive > 0 ? 3.5 : 1;
       this.player.position.addScaledVector(dir, speed * multiplier * dt);
       this.player.rotation.y = Math.atan2(-dir.x, -dir.z);
-      this.player.position.y = Math.abs(Math.sin(this.elapsed * 10)) * .045;
+      this.player.position.y = Math.abs(Math.sin(this.elapsed * 10)) * .022;
     } else {
       this.player.position.y = THREE.MathUtils.lerp(this.player.position.y, 0, .2);
     }
@@ -666,13 +669,17 @@ class EteriaGame {
     }
 
     if (!this.heroAnimator?.ready) {
-      const gait = moving ? Math.sin(this.elapsed * 10) : 0;
-      this.heroRig.legL.rotation.x = gait * .55;
-      this.heroRig.legR.rotation.x = -gait * .55;
-      this.heroRig.armL.rotation.x = -gait * .35;
-      this.heroRig.armR.rotation.x = gait * .28;
-      this.heroRig.cape.rotation.x = -.08 + Math.abs(gait) * .08 + (this.dashActive > 0 ? .22 : 0);
-      this.heroRig.rune.rotation.z += dt * .7;
+      const gait = moving ? Math.sin(this.elapsed * 9.2) : 0;
+      const stride = moving ? .44 : 0;
+      this.heroRig.legL.rotation.x = THREE.MathUtils.lerp(this.heroRig.legL.rotation.x, gait * stride, .34);
+      this.heroRig.legR.rotation.x = THREE.MathUtils.lerp(this.heroRig.legR.rotation.x, -gait * stride, .34);
+      this.heroRig.armL.rotation.x = THREE.MathUtils.lerp(this.heroRig.armL.rotation.x, -gait * .24, .3);
+      this.heroRig.armR.rotation.x = THREE.MathUtils.lerp(this.heroRig.armR.rotation.x, gait * .18, .3);
+      this.heroRig.torso.rotation.x = THREE.MathUtils.lerp(this.heroRig.torso.rotation.x, moving ? .035 : 0, .18);
+      this.heroRig.torso.rotation.z = THREE.MathUtils.lerp(this.heroRig.torso.rotation.z, moving ? -gait * .018 : 0, .18);
+      this.heroRig.chest.rotation.z = THREE.MathUtils.lerp(this.heroRig.chest.rotation.z, moving ? gait * .025 : 0, .18);
+      this.heroRig.cape.rotation.x = -.08 + Math.abs(gait) * .045 + (this.dashActive > 0 ? .18 : 0);
+      this.heroRig.rune.rotation.z += dt * .55;
     }
 
     this.rpg?.updateCombatAnimation(dt, moving);
@@ -924,6 +931,7 @@ class EteriaGame {
   onResize() {
     const w = innerWidth, h = innerHeight;
     this.camera.aspect = w / h;
+    this.camera.fov = h > w ? 46 : 50;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, w < 900 ? 1.6 : 1.9));
