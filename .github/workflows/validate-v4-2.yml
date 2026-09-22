@@ -1,0 +1,65 @@
+name: Validate Eteria 4.2 rigged hero
+
+on:
+  push:
+    branches:
+      - feature/eteria-v4-2-rigged-gltf-hero
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build frontend and generate hero
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Validate generated GLTF rig
+        working-directory: frontend
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const path = 'public/assets/eteria_hero.gltf';
+          if (!fs.existsSync(path)) throw new Error('eteria_hero.gltf was not generated');
+          const g = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const names = new Set((g.animations || []).map(a => a.name));
+          for (const clip of ['Idle','Walk','Run','Attack_1','Attack_2','Heavy_Attack','Dash']) {
+            if (!names.has(clip)) throw new Error('missing animation: ' + clip);
+          }
+          if (!g.skins?.length || (g.skins[0].joints?.length || 0) < 15) throw new Error('invalid skeleton');
+          const face = (g.meshes || []).find(m => m.name === 'EteriaFaceRig');
+          if (!face?.primitives?.[0]?.targets?.length || face.primitives[0].targets.length < 2) throw new Error('facial morph targets missing');
+          if (!g.materials?.every(m => m.pbrMetallicRoughness)) throw new Error('PBR materials missing');
+          if (!g.extras?.eteria?.mocap?.clips?.Walk || !g.extras?.eteria?.mocap?.clips?.Run) throw new Error('mocap provenance missing');
+          const socket = (g.nodes || []).find(n => n.name === 'WeaponSocket_R');
+          if (!socket) throw new Error('weapon socket missing');
+          console.log('Validated Eteria hero:', {
+            joints: g.skins[0].joints.length,
+            animations: [...names],
+            morphTargets: face.primitives[0].targets.length,
+            materials: g.materials.length,
+            generator: g.asset.generator
+          });
+          NODE
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Run backend tests
+        run: |
+          pip install -r backend/requirements.txt pytest httpx
+          pytest -q tests_backend.py
