@@ -289,7 +289,7 @@ export class RPGSystems {
   }
 
   isModalOpen() {
-    return this.inventoryOpen || this.dialogueOpen;
+    return this.inventoryOpen || this.dialogueOpen || !!this.game.progression?.isModalOpen();
   }
 
   toggleInventory() {
@@ -309,7 +309,7 @@ export class RPGSystems {
     if (!this.inventoryOpen) return;
     this.inventoryOpen = false;
     this.dom.inventoryPanel?.classList.add('hidden');
-    if (!this.dialogueOpen) {
+    if (!this.dialogueOpen && !this.game.progression?.isModalOpen()) {
       this.game.paused = false;
       this.game.clock.getDelta();
     }
@@ -411,6 +411,9 @@ export class RPGSystems {
       }
     }
 
+    const external = this.game.progression?.getNearbyInteractable();
+    if (external && external.distance < nearestDistance) nearest = external;
+
     this.nearby = nearest;
     this.dom.interactBtn?.classList.toggle('hidden', !nearest);
     this.dom.interactPrompt?.classList.toggle('hidden', !nearest);
@@ -420,6 +423,7 @@ export class RPGSystems {
   interact() {
     if (!this.nearby) return;
     if (this.nearby.type === 'npc') this.openDialogue(this.nearby.item);
+    else if (this.nearby.type === 'merchant') this.game.progression?.interactMerchant();
     else this.openChest(this.nearby.item);
   }
 
@@ -450,6 +454,7 @@ export class RPGSystems {
     this.spawnRing(chest.root.position.clone(), 0x67e8f9, 2.2);
     this.toast(`Cofre abierto: ${parts.join(' · ')}`);
     this.vibrate([20, 30, 35]);
+    this.game.progression?.recordChest();
     this.renderInventory();
     this.game.updateUI();
     this.game.save();
@@ -486,7 +491,9 @@ export class RPGSystems {
   }
 
   grantNpcReward(npc) {
-    if (!npc || this.game.state.npcRewards.includes(npc.id)) return;
+    if (!npc) return;
+    this.game.progression?.recordTalk(npc.id);
+    if (this.game.state.npcRewards.includes(npc.id)) return;
     this.game.state.npcRewards.push(npc.id);
     if (npc.id === 'liora') {
       this.game.state.potions += 1;
@@ -507,7 +514,7 @@ export class RPGSystems {
     this.dialogueOpen = false;
     this.dialogueNpc = null;
     this.dom.dialogue?.classList.add('hidden');
-    if (!this.inventoryOpen) {
+    if (!this.inventoryOpen && !this.game.progression?.isModalOpen()) {
       this.game.paused = false;
       this.game.clock.getDelta();
     }
@@ -536,9 +543,11 @@ export class RPGSystems {
       if (distance > range) continue;
       const dot = delta.normalize().dot(forward);
       if (dot < COMBO_DOT[step]) continue;
-      const critical = Math.random() < weapon.crit + (step === 3 ? .06 : 0);
-      const damage = Math.round(baseDamage * (critical ? 1.75 : 1));
-      this.applyDamage(enemy, damage, { critical, color: weapon.glow });
+      const bonusCrit = this.game.progression?.getStats().critBonus || 0;
+      const critical = Math.random() < weapon.crit + bonusCrit + (step === 3 ? .06 : 0);
+      let damage = baseDamage * (critical ? 1.75 : 1);
+      damage = this.game.progression?.outgoingDamage(damage, enemy, critical) ?? damage;
+      this.applyDamage(enemy, Math.round(damage), { critical, color: weapon.glow });
       hit = true;
     }
 
@@ -558,7 +567,7 @@ export class RPGSystems {
       return;
     }
 
-    this.specialCooldown = special.cooldown;
+    this.specialCooldown = special.cooldown * (this.game.progression?.getStats().specialCooldownMultiplier || 1);
     this.combatAnim = { kind: 'special', step: 0, weaponId: weapon.id, t: 0, duration: .72 };
     game.attackTimer = Math.max(game.attackTimer, .62);
     const forward = game.lastMove.clone().setY(0).normalize();
@@ -588,7 +597,10 @@ export class RPGSystems {
         for (let i = 0; i < 5; i++) {
           setTimeout(() => {
             if (!target.group.parent || target.hp <= 0 || !game.active) return;
-            this.applyDamage(target, Math.round(base * .48), { critical: Math.random() < weapon.crit, color: weapon.glow, quiet: i < 4 });
+            const crit = Math.random() < weapon.crit + (game.progression?.getStats().critBonus || 0);
+            let strikeDamage = base * .48 * (crit ? 1.45 : 1);
+            strikeDamage = game.progression?.outgoingDamage(strikeDamage, target, crit) ?? strikeDamage;
+            this.applyDamage(target, Math.round(strikeDamage), { critical: crit, color: weapon.glow, quiet: i < 4 });
             this.spawnBurst(target.group.position.clone().add(new THREE.Vector3(0, 1.3, 0)), weapon.glow, 5, .6);
           }, i * 78);
         }
@@ -611,8 +623,10 @@ export class RPGSystems {
 
     let totalDamage = 0;
     for (const enemy of targets) {
-      const critical = Math.random() < weapon.crit + .08;
-      const damage = Math.round(base * multiplier * (critical ? 1.55 : 1));
+      const critical = Math.random() < weapon.crit + (game.progression?.getStats().critBonus || 0) + .08;
+      let damage = base * multiplier * (critical ? 1.55 : 1);
+      damage = game.progression?.outgoingDamage(damage, enemy, critical) ?? damage;
+      damage = Math.round(damage);
       totalDamage += damage;
       this.applyDamage(enemy, damage, { critical, color: weapon.glow });
     }
@@ -666,6 +680,7 @@ export class RPGSystems {
       enemy.bodyMat.emissiveIntensity = enemy.isBoss ? .7 : .28;
     }, 110);
 
+    if (critical) game.progression?.onCriticalDamage(damage);
     if (enemy.hp <= 0) game.killEnemy(enemy);
     else if (!quiet) game.updateUI();
   }

@@ -3,6 +3,8 @@ import './style.css';
 import { WEAPONS, ENEMY_ARCHETYPES, BOSS, STORY, weaponUnlocked } from './gameData.js';
 import { createHeroModel, createEnemyModel, createWeaponModel } from './models.js';
 import { RPGSystems } from './rpgSystems.js';
+import { ProgressionSystems } from './progressionSystems.js';
+import { WorldExpansion } from './worldExpansion.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game-canvas');
@@ -19,7 +21,7 @@ const mapCtx = minimap.getContext('2d');
 const SAVE_KEY = 'eteria-rpg-save-v1';
 const GOALS = { kills: 8, crystals: 6 };
 const WORLD_SIZE = 84;
-const HALF_WORLD = WORLD_SIZE / 2 - 2;
+const HALF_WORLD = 148;
 
 const UI = {
   level: $('level-label'), gold: $('gold-label'), healthBar: $('health-bar'), healthText: $('health-text'), xpBar: $('xp-bar'),
@@ -95,6 +97,8 @@ class EteriaGame {
     this.createWorld();
     this.createPlayer();
     this.rpg = new RPGSystems(this, { toast, vibrate });
+    this.progression = new ProgressionSystems(this, { toast, vibrate });
+    this.world = new WorldExpansion(this, { toast, vibrate });
     this.bindInput();
     this.onResize();
     addEventListener('resize', () => this.onResize());
@@ -304,9 +308,13 @@ class EteriaGame {
     this.enemies = [];
     this.crystals = [];
     this.boss = null;
-    this.spawnEnemies(Math.max(4, 11 - this.state.kills));
-    this.spawnCrystals(Math.max(2, 9 - this.state.crystals));
-    if (this.isBossReady() && !this.state.bossDefeated) this.spawnBoss();
+    if (this.state.currentRegion === 'ashen-wastes') {
+      this.world?.spawnAshEnemies();
+    } else {
+      this.spawnEnemies(Math.max(4, 11 - this.state.kills));
+      this.spawnCrystals(Math.max(2, 9 - this.state.crystals));
+      if (this.isBossReady() && !this.state.bossDefeated) this.spawnBoss();
+    }
   }
 
   spawnEnemies(count) {
@@ -382,6 +390,9 @@ class EteriaGame {
     this.unlockedWeaponIds = new Set();
     this.storyKey = 'intro';
     this.rpg?.syncState();
+    this.progression?.ensureState();
+    this.progression?.renderAll();
+    this.world?.ensureState();
     localStorage.removeItem(SAVE_KEY);
     this.player.position.set(0,0,10);
     this.resetWorldEntities();
@@ -398,6 +409,9 @@ class EteriaGame {
       this.defaultState();
       Object.assign(this.state, saved?.state || {});
       this.rpg?.syncState();
+      this.progression?.ensureState();
+      this.progression?.renderAll();
+      this.world?.ensureState();
       this.storyKey = this.state.chapter || 'intro';
       this.updateStoryProgress();
       this.player.position.set(this.state.x || 0, 0, this.state.z || 10);
@@ -437,7 +451,7 @@ class EteriaGame {
     if (!this.active) return;
     this.state.x = Number(this.player.position.x.toFixed(2));
     this.state.z = Number(this.player.position.z.toFixed(2));
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 3, state: this.state, savedAt: Date.now() }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ version: 4, state: this.state, savedAt: Date.now() }));
     continueBtn.classList.remove('hidden');
   }
 
@@ -460,6 +474,8 @@ class EteriaGame {
       if (e.code === 'KeyE') this.rpg?.specialAttack();
       if (e.code === 'KeyF') this.rpg?.interact();
       if (e.code === 'KeyI') this.rpg?.toggleInventory();
+      if (e.code === 'KeyC') this.progression?.togglePanel('character');
+      if (e.code === 'KeyJ') this.progression?.togglePanel('quests');
       if (e.code.startsWith('Digit')) {
         const slot = Number(e.code.slice(5)) - 1;
         const available = this.updateWeaponUnlocks(false);
@@ -468,6 +484,7 @@ class EteriaGame {
       if (e.code === 'Escape') {
         if (this.rpg?.inventoryOpen) this.rpg.closeInventory();
         else if (this.rpg?.dialogueOpen) this.rpg.closeDialogue();
+        else if (this.progression?.isModalOpen()) this.progression.closePanels();
         else this.paused ? this.resume() : this.pause();
       }
     });
@@ -514,7 +531,8 @@ class EteriaGame {
       this.gainXp(BOSS.xp);
       this.updateWeaponUnlocks(true);
       this.storyKey = 'finale';
-      toast('Vharok ha caído. El Portal del Eclipse está abierto.');
+      this.progression?.checkQuestRewards();
+      toast('Vharok ha caído. El portal conduce ahora a las Tierras de Ceniza.');
       this.updateUI();
       this.checkQuest();
       return;
@@ -522,6 +540,7 @@ class EteriaGame {
 
     const archetype = enemy.archetype;
     this.state.kills += 1;
+    this.progression?.recordKill(archetype.id);
     this.state.gold += Math.round(rand(archetype.gold[0], archetype.gold[1]));
     if (Math.random() < .2) {
       this.state.potions++;
@@ -568,12 +587,15 @@ class EteriaGame {
       this.state.hp = this.state.maxHp;
       this.state.potions++;
       toast(`¡Nivel ${this.state.level}! Vida, daño y arsenal mejorados.`);
+      this.progression?.onLevelUp();
+      this.state.hp = this.state.maxHp;
       this.updateWeaponUnlocks(true);
     }
   }
 
   takeDamage(amount) {
     if (this.finished) return;
+    amount = this.progression?.incomingDamage(amount) ?? amount;
     this.state.hp = Math.max(0, this.state.hp - amount);
     vibrate(45);
     this.rpg?.showFloatingText(this.player.position.clone().add(new THREE.Vector3(0, 2.45, 0)), `-${Math.round(amount)}`, '#fb7185', true);
@@ -606,8 +628,13 @@ class EteriaGame {
     } else {
       this.player.position.y = THREE.MathUtils.lerp(this.player.position.y, 0, .2);
     }
-    this.player.position.x = clamp(this.player.position.x, -HALF_WORLD, HALF_WORLD);
-    this.player.position.z = clamp(this.player.position.z, -HALF_WORLD, HALF_WORLD);
+    if (this.state.currentRegion === 'ashen-wastes') {
+      this.player.position.x = clamp(this.player.position.x, 66, 144);
+      this.player.position.z = clamp(this.player.position.z, -40, 40);
+    } else {
+      this.player.position.x = clamp(this.player.position.x, -40, 40);
+      this.player.position.z = clamp(this.player.position.z, -40, 40);
+    }
 
     const gait = moving ? Math.sin(this.elapsed * 10) : 0;
     this.heroRig.legL.rotation.x = gait * .55;
@@ -622,9 +649,20 @@ class EteriaGame {
 
   updateEnemies(dt) {
     for (const enemy of this.enemies) {
-      enemy.cooldown -= dt;
       const toPlayer = this.player.position.clone().sub(enemy.group.position);
       const d = toPlayer.length();
+
+      if (enemy.isBoss) {
+        this.world?.updateBoss(enemy, dt, toPlayer, d);
+        continue;
+      }
+
+      if (enemy.archetype.ranged) {
+        this.world?.updateRangedEnemy(enemy, dt, toPlayer, d);
+        continue;
+      }
+
+      enemy.cooldown -= dt;
       let dir;
       if (d < 15) {
         dir = toPlayer.setY(0).normalize();
@@ -645,14 +683,10 @@ class EteriaGame {
       enemy.group.position.y = .04 + Math.sin(this.elapsed * 3 + enemy.phase) * .06;
       enemy.attackAnim = Math.max(0, (enemy.attackAnim || 0) - dt);
       const strike = enemy.attackAnim > 0 ? Math.sin((1 - enemy.attackAnim / .34) * Math.PI) : 0;
-      const type = enemy.isBoss ? 'boss' : enemy.archetype.id;
-      if (type === 'shade') enemy.group.rotation.z = strike * .24;
+      const type = enemy.archetype.id;
+      if (type === 'shade' || type === 'ashHound') enemy.group.rotation.z = strike * .24;
       else if (type === 'marauder') enemy.group.rotation.z = -strike * .38;
       else if (type === 'guardian') enemy.group.rotation.x = strike * .32;
-      else if (type === 'boss') {
-        enemy.group.rotation.x = strike * .2;
-        enemy.group.rotation.z = Math.sin(this.elapsed * 1.2) * .04;
-      }
       if (!enemy.attackAnim) {
         enemy.group.rotation.x = THREE.MathUtils.lerp(enemy.group.rotation.x, 0, .18);
         enemy.group.rotation.z = THREE.MathUtils.lerp(enemy.group.rotation.z, 0, .18);
@@ -690,7 +724,8 @@ class EteriaGame {
 
   updateStoryProgress() {
     const previous = this.storyKey;
-    if (this.state.bossDefeated) this.storyKey = 'finale';
+    if (this.state.currentRegion === 'ashen-wastes') this.storyKey = 'wastes';
+    else if (this.state.bossDefeated) this.storyKey = 'finale';
     else if (this.boss || this.isBossReady()) this.storyKey = 'boss';
     else if (this.state.kills >= 5 || this.state.crystals >= 4) this.storyKey = 'truth';
     else if (this.state.kills >= 2 || this.state.crystals >= 2) this.storyKey = 'shadows';
@@ -711,13 +746,17 @@ class EteriaGame {
   checkQuest() {
     this.updateStoryProgress();
     if (this.isBossReady() && !this.state.bossDefeated && !this.boss) this.spawnBoss();
-    if (this.isPortalUnlocked()) toast('¡Portal desbloqueado! Ve al noreste del valle.');
+    if (this.isPortalUnlocked() && this.state.currentRegion !== 'ashen-wastes') toast('¡Portal desbloqueado! Ve al noreste del valle.');
     this.save();
   }
 
   updatePortal() {
     if (!this.isPortalUnlocked()) return;
-    if (dist2D(this.player.position, this.portal.position) < 2.3) this.win();
+    if (this.state.currentRegion !== 'ashen-wastes' && dist2D(this.player.position, this.portal.position) < 2.3) {
+      this.world?.enterAshenWastes();
+      this.storyKey = 'wastes';
+      this.updateUI();
+    }
   }
 
   win() {
@@ -747,13 +786,27 @@ class EteriaGame {
 
   updateAtmosphere() {
     const cycle = (Math.sin(this.elapsed * .025) + 1) * .5;
-    const day = new THREE.Color(0x1e3850);
-    const dusk = new THREE.Color(0x11172b);
-    this.scene.background.copy(dusk).lerp(day, .35 + cycle * .48);
-    this.scene.fog.color.copy(this.scene.background);
-    this.hemi.intensity = 1.45 + cycle * .9;
-    this.sun.intensity = 1.8 + cycle * 1.05;
-    this.sun.position.x = Math.cos(this.elapsed * .025) * 26;
+    if (this.state.currentRegion === 'ashen-wastes') {
+      const ash = new THREE.Color(0x2a1c1c);
+      const ember = new THREE.Color(0x5b2b22);
+      this.scene.background.copy(ash).lerp(ember, .2 + cycle * .22);
+      this.scene.fog.color.copy(this.scene.background);
+      this.scene.fog.density = .024;
+      this.hemi.intensity = 1.05 + cycle * .38;
+      this.sun.intensity = 1.35 + cycle * .45;
+      this.sun.color.setHex(0xffb36b);
+      this.sun.position.set(95,24,18);
+    } else {
+      const day = new THREE.Color(0x1e3850);
+      const dusk = new THREE.Color(0x11172b);
+      this.scene.background.copy(dusk).lerp(day, .35 + cycle * .48);
+      this.scene.fog.color.copy(this.scene.background);
+      this.scene.fog.density = .018;
+      this.hemi.intensity = 1.45 + cycle * .9;
+      this.sun.intensity = 1.8 + cycle * 1.05;
+      this.sun.color.setHex(0xfff1cc);
+      this.sun.position.x = Math.cos(this.elapsed * .025) * 26;
+    }
   }
 
   updateUI() {
@@ -762,8 +815,13 @@ class EteriaGame {
     UI.healthBar.style.width = `${(this.state.hp / this.state.maxHp) * 100}%`;
     UI.healthText.textContent = `${Math.ceil(this.state.hp)} / ${this.state.maxHp}`;
     UI.xpBar.style.width = `${(this.state.xp / this.state.xpNext) * 100}%`;
-    UI.kills.textContent = `Enemigos: ${Math.min(this.state.kills, GOALS.kills)} / ${GOALS.kills}`;
-    UI.crystals.textContent = `Fragmentos: ${Math.min(this.state.crystals, GOALS.crystals)} / ${GOALS.crystals}`;
+    if (this.state.currentRegion === 'ashen-wastes') {
+      UI.kills.textContent = `Criaturas de Ceniza: ${Math.min(this.state.questProgress?.ashKills || 0, 6)} / 6`;
+      UI.crystals.textContent = `Objetivo: alcanza el faro oriental`;
+    } else {
+      UI.kills.textContent = `Enemigos: ${Math.min(this.state.kills, GOALS.kills)} / ${GOALS.kills}`;
+      UI.crystals.textContent = `Fragmentos: ${Math.min(this.state.crystals, GOALS.crystals)} / ${GOALS.crystals}`;
+    }
     UI.potionCount.textContent = this.state.potions;
 
     const story = STORY[this.storyKey] || STORY.intro;
@@ -782,7 +840,7 @@ class EteriaGame {
     if (this.boss && !this.state.bossDefeated) {
       UI.bossHud.classList.remove('hidden');
       UI.bossBar.style.width = `${Math.max(0, this.boss.hp / this.boss.maxHp) * 100}%`;
-      UI.bossText.textContent = `${BOSS.name} · ${Math.max(0, Math.ceil(this.boss.hp))} / ${this.boss.maxHp}`;
+      UI.bossText.textContent = `${BOSS.name} · Fase ${this.boss.bossPhase || 1} · ${Math.max(0, Math.ceil(this.boss.hp))} / ${this.boss.maxHp}`;
     } else {
       UI.bossHud.classList.add('hidden');
     }
@@ -795,14 +853,18 @@ class EteriaGame {
     mapCtx.translate(w/2,h/2);
     mapCtx.beginPath(); mapCtx.arc(0,0,w*.47,0,Math.PI*2); mapCtx.clip();
     mapCtx.fillStyle = 'rgba(8, 30, 31, .88)'; mapCtx.fillRect(-w/2,-h/2,w,h);
-    const s = (w*.43) / HALF_WORLD;
-    const dot = (x,z,r,color) => { mapCtx.beginPath(); mapCtx.arc(x*s, z*s, r, 0, Math.PI*2); mapCtx.fillStyle=color; mapCtx.fill(); };
+    const centerX = this.state.currentRegion === 'ashen-wastes' ? 105 : 0;
+    const localHalf = 42;
+    const s = (w*.43) / localHalf;
+    const dot = (x,z,r,color) => { mapCtx.beginPath(); mapCtx.arc((x-centerX)*s, z*s, r, 0, Math.PI*2); mapCtx.fillStyle=color; mapCtx.fill(); };
     for (const c of this.crystals) dot(c.mesh.position.x,c.mesh.position.z,2.4,'#67e8f9');
     for (const e of this.enemies) {
-      const color = e.isBoss ? '#f0abfc' : e.archetype.id === 'guardian' ? '#a78bfa' : e.archetype.id === 'marauder' ? '#fb923c' : '#fb7185';
+      if (Math.abs(e.group.position.x-centerX) > 48) continue;
+      const color = e.isBoss ? '#f0abfc' : e.archetype.id === 'ashArcher' ? '#fb923c' : e.archetype.id === 'ashHound' ? '#ef4444' : e.archetype.id === 'guardian' ? '#a78bfa' : e.archetype.id === 'marauder' ? '#fb923c' : '#fb7185';
       dot(e.group.position.x,e.group.position.z,e.isBoss ? 3.8 : 2.2,color);
     }
-    dot(this.portal.position.x,this.portal.position.z,3.1,this.isPortalUnlocked() ? '#fbbf24' : '#7c3aed');
+    if (this.state.currentRegion !== 'ashen-wastes') dot(this.portal.position.x,this.portal.position.z,3.1,this.isPortalUnlocked() ? '#fbbf24' : '#7c3aed');
+    if (this.state.currentRegion === 'ashen-wastes' && this.world?.endBeacon) dot(this.world.endBeacon.position.x,this.world.endBeacon.position.z,3.4,'#fbbf24');
     dot(this.player.position.x,this.player.position.z,3.8,'#f8fafc');
     mapCtx.restore();
     mapCtx.strokeStyle='rgba(255,255,255,.22)'; mapCtx.lineWidth=2; mapCtx.beginPath(); mapCtx.arc(w/2,h/2,w*.47,0,Math.PI*2); mapCtx.stroke();
@@ -835,6 +897,8 @@ class EteriaGame {
       this.updateEnemies(dt);
       this.updateCrystals(dt);
       this.rpg?.update(dt);
+      this.progression?.update(dt);
+      this.world?.update(dt);
       this.updatePortal();
       this.updateCamera(dt);
       this.updateAtmosphere();

@@ -161,7 +161,7 @@ export function createHeroModel(weapon) {
   weaponSocket.add(createWeaponModel(weapon));
 
   root.add(torso,chest,belt,buckle,head,hair,brow,eyeL,eyeR,shoulderL,shoulderR,armL,armR,legL,legR,cape,backRune,weaponSocket);
-  return { root, weaponSocket, armL, armR, legL, legR, cape, rune: backRune };
+  return { root, weaponSocket, armL, armR, legL, legR, cape, rune: backRune, torso, chest, hair, brow, shoulderL, shoulderR };
 }
 
 function addEnemyFace(group, glowColor, y, z) {
@@ -188,7 +188,41 @@ export function createEnemyModel(archetype, isBoss = false) {
     emissiveIntensity: isBoss ? 2.5 : 1.7
   });
 
-  if (archetype.id === 'shade') {
+  if (archetype.id === 'ashArcher') {
+    const torso = shadow(new THREE.Mesh(new THREE.BoxGeometry(.78,.82,.42), bodyMat));
+    torso.position.y = 1.22;
+    const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.34,12,9), bodyMat));
+    head.position.y = 1.92;
+    const hood = shadow(new THREE.Mesh(new THREE.ConeGeometry(.44,.55,8), bodyMat));
+    hood.position.y = 2.2;
+    const bow = shadow(new THREE.Mesh(new THREE.TorusGeometry(.52,.035,6,18,Math.PI), glowMat));
+    bow.position.set(.56,1.38,-.05);
+    bow.rotation.set(0,Math.PI/2,Math.PI/2);
+    const string = shadow(new THREE.Mesh(new THREE.BoxGeometry(.02,1.0,.02), glowMat));
+    string.position.set(.56,1.38,-.05);
+    const quiver = shadow(new THREE.Mesh(new THREE.BoxGeometry(.18,.78,.22), bodyMat));
+    quiver.position.set(-.36,1.25,.28);
+    quiver.rotation.z=.18;
+    group.add(torso,head,hood,bow,string,quiver);
+    addEnemyFace(group, archetype.glow, 1.94, -.33);
+  } else if (archetype.id === 'ashHound') {
+    const body = shadow(new THREE.Mesh(new THREE.BoxGeometry(1.15,.5,.55), bodyMat));
+    body.position.y=.72;
+    const head = shadow(new THREE.Mesh(new THREE.BoxGeometry(.5,.5,.52), bodyMat));
+    head.position.set(0,1.02,-.64);
+    const jaw = shadow(new THREE.Mesh(new THREE.BoxGeometry(.36,.2,.42), glowMat));
+    jaw.position.set(0,.9,-.98);
+    for (const side of [-1,1]) {
+      const legF=shadow(new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,.6,6),bodyMat));
+      legF.position.set(side*.36,.35,-.34);
+      const legB=legF.clone(); legB.position.z=.34;
+      const horn=shadow(new THREE.Mesh(new THREE.ConeGeometry(.08,.36,6),glowMat));
+      horn.position.set(side*.19,1.34,-.66);horn.rotation.z=side*.22;
+      group.add(legF,legB,horn);
+    }
+    group.add(body,head,jaw);
+    addEnemyFace(group, archetype.glow, 1.06, -.91);
+  } else if (archetype.id === 'shade') {
     const body = shadow(new THREE.Mesh(new THREE.CapsuleGeometry(.42,.72,4,8), bodyMat));
     body.position.y = 1.03;
     const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.46,12,9), bodyMat));
