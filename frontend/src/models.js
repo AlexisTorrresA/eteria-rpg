@@ -273,7 +273,7 @@ export function createHeroModel(weapon) {
   // More human head: elongated skull, ears, nose, beard and brows.
   const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.31,22,16), skin));
   head.position.set(0,2.25,-.02);
-  head.scale.set(.9,1.08,.9);
+  head.scale.set(.84,1.02,.86);
 
   for (const x of [-.295,.295]) {
     const ear = shadow(new THREE.Mesh(new THREE.SphereGeometry(.052,10,8), skinShadow));
@@ -282,9 +282,22 @@ export function createHeroModel(weapon) {
     root.add(ear);
   }
 
-  const nose = shadow(new THREE.Mesh(new THREE.ConeGeometry(.048,.15,6), skinShadow));
+  const nose = shadow(new THREE.Mesh(new THREE.ConeGeometry(.042,.14,7), skinShadow));
   nose.rotation.x = -Math.PI/2;
-  nose.position.set(0,2.25,-.31);
+  nose.position.set(0,2.25,-.285);
+
+  const chin = shadow(new THREE.Mesh(new THREE.SphereGeometry(.11,10,7), skinShadow));
+  chin.position.set(0,2.055,-.18);
+  chin.scale.set(1.15,.58,.72);
+
+  const cheekL = shadow(new THREE.Mesh(new THREE.SphereGeometry(.085,10,7), skin));
+  cheekL.position.set(-.145,2.20,-.235);
+  cheekL.scale.set(1.1,.62,.5);
+  const cheekR = cheekL.clone();
+  cheekR.position.x = .145;
+
+  const mouth = shadow(new THREE.Mesh(new THREE.BoxGeometry(.13,.018,.018), beardMat));
+  mouth.position.set(0,2.125,-.294);
 
   const jaw = shadow(new THREE.Mesh(new THREE.SphereGeometry(.255,16,10,0,Math.PI*2,Math.PI*.45,Math.PI*.45), beardMat));
   jaw.position.set(0,2.11,-.035);
@@ -347,10 +360,10 @@ export function createHeroModel(weapon) {
 
   // Shoulder armor: asymmetrical, less toy-like.
   const shoulderL = shadow(new THREE.Mesh(new THREE.SphereGeometry(.23,14,9), steelDark));
-  shoulderL.scale.set(1.35,.62,1.05);
+  shoulderL.scale.set(1.48,.64,1.08);
   shoulderL.position.set(-.47,1.67,-.01);
   const shoulderR = shadow(new THREE.Mesh(new THREE.SphereGeometry(.205,14,9), leather));
-  shoulderR.scale.set(1.28,.58,1.02);
+  shoulderR.scale.set(1.38,.6,1.05);
   shoulderR.position.set(.47,1.65,-.005);
 
   const shoulderBandL = shadow(new THREE.Mesh(new THREE.TorusGeometry(.2,.022,7,14,Math.PI), steel));
@@ -444,17 +457,19 @@ export function createHeroModel(weapon) {
   backRune.rotation.y = Math.PI;
 
   const weaponSocket = new THREE.Group();
-  weaponSocket.position.set(.62,1.08,-.08);
-  weaponSocket.rotation.set(-.12,0,-.55);
+  weaponSocket.position.set(.55,.83,-.06);
+  weaponSocket.rotation.set(-.08,0,-.48);
   weaponSocket.add(createWeaponModel(weapon));
 
   root.add(
     undershirt,torso,chest,chestCenter,strapA,strapB,belt,buckle,
-    head,nose,jaw,hair,hoodGear,crownGear,brow,cowlA,cowlB,
+    head,nose,chin,cheekL,cheekR,mouth,jaw,hair,hoodGear,crownGear,brow,cowlA,cowlB,
     shoulderL,shoulderR,shoulderBandL,
     armL,armR,legL,legR,cape,backpack,bedroll,
     pendantChain,pendant,pendantGem,backRune,weaponSocket
   );
+
+  root.scale.setScalar(1.06);
 
   root.traverse((obj) => {
     if (obj.isMesh) {
