@@ -27,10 +27,10 @@
           <div class="eyebrow">RPG 3D • MOBILE</div>
           <h1>ETERIA</h1>
           <h2>Fragmentos del Eclipse</h2>
-          <p class="story">El eclipse quebró el corazón de Eteria. Recupera los fragmentos, derrota a las Sombras y abre el portal antes de que el valle desaparezca.</p>
+          <p class="story">Hace siglos, el Corazón del Eclipse mantenía en equilibrio la luz y la sombra. Al romperse, sus fragmentos corrompieron a los antiguos guardianes. Eres un Viajero del Umbral: recupera los fragmentos, descubre quién despertó a Vharok y abre el camino hacia las regiones perdidas de Eteria.</p>
           <button id="start-btn" class="primary-btn">Nueva aventura</button>
           <button id="continue-btn" class="secondary-btn hidden">Continuar</button>
-          <div class="menu-hint">Móvil: joystick + botones · PC: WASD + Espacio + Shift</div>
+          <div class="menu-hint">Móvil: joystick + combate + cambio de arma · PC: WASD · Espacio atacar · Shift dash · R cambiar arma</div>
         </div>
       </div>
 
@@ -41,15 +41,21 @@
             <div class="level-line"><strong id="level-label">Nv. 1</strong><span id="gold-label">0 ✦</span></div>
             <div class="bar health"><span id="health-bar"></span><b id="health-text">100 / 100</b></div>
             <div class="bar xp"><span id="xp-bar"></span></div>
+            <div class="weapon-line"><span id="weapon-label">⚔ Hoja de Éter</span><span>R · cambiar</span></div>
           </div>
         </section>
 
         <section id="quest-card" class="hud-quest glass compact">
-          <div class="eyebrow">MISIÓN ACTUAL</div>
-          <strong>Fragmentos del Eclipse</strong>
+          <div id="chapter-label" class="eyebrow">CAPÍTULO I · EL DESPERTAR</div>
+          <strong id="quest-title">Ecos en el valle</strong>
           <div id="quest-enemies">Sombras: 0 / 6</div>
           <div id="quest-crystals">Fragmentos: 0 / 5</div>
           <div id="quest-status">El portal sigue sellado.</div>
+        </section>
+
+        <section id="boss-hud" class="boss-hud glass hidden">
+          <div id="boss-text">Vharok, Guardián del Eclipse</div>
+          <div class="boss-track"><span id="boss-bar"></span></div>
         </section>
 
         <canvas id="minimap" width="150" height="150" aria-label="Minimapa"></canvas>
@@ -65,6 +71,7 @@
           </div>
           <div class="action-cluster">
             <button id="potion-btn" class="action-btn small potion" aria-label="Usar poción"><span>✚</span><b id="potion-count">3</b></button>
+            <button id="weapon-btn" class="action-btn weapon" aria-label="Cambiar arma"><span>↻</span></button>
             <button id="dash-btn" class="action-btn dash" aria-label="Dash"><span>➤</span></button>
             <button id="attack-btn" class="action-btn attack" aria-label="Atacar"><span>⚔</span></button>
           </div>
@@ -86,7 +93,7 @@
           <div class="logo-mark">✦</div>
           <div class="eyebrow">CAPÍTULO COMPLETADO</div>
           <h1>Eteria respira otra vez</h1>
-          <p>Has reunido los fragmentos suficientes para reabrir el portal. Esta base queda preparada para añadir nuevas zonas, jefes, NPC y equipo.</p>
+          <p>Has recuperado los fragmentos, derrotado a Vharok y restaurado el primer sello. El portal conduce ahora a una región desconocida de Eteria, donde el origen real del Eclipse sigue esperando.</p>
           <div id="victory-stats" class="victory-stats"></div>
           <button id="victory-restart-btn" class="primary-btn">Jugar de nuevo</button>
         </div>
