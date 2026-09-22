@@ -26,11 +26,11 @@ const HERO_PRESETS = {
 const NPC_PRESETS = {
   liora: {
     label: 'Liora', outfit: 'female_ranger', head: 'female_head', hair: 'hair_long',
-    tint: 0x795c91, tintMix: .12, position: [-4.2, 0, 6.1], rotation: .5,
+    tint: 0x795c91, tintMix: .12, rotation: Math.PI * .86,
   },
   eldren: {
     label: 'Eldren', outfit: 'male_peasant', head: 'male_head', hair: 'hair_buzzed',
-    tint: 0x776751, tintMix: .1, position: [5.1, 0, 4.4], rotation: -.65,
+    tint: 0x776751, tintMix: .1, rotation: Math.PI * .18,
   },
 };
 
@@ -376,19 +376,30 @@ class QuaterniusNPCController {
     this.root = new THREE.Group();
     this.root.name = `EteriaNPC_${id}`;
     this.driver = null;
+    this.anchor = null;
+    this.fallbackChildren = [];
     this.ready = false;
   }
 
   async load() {
+    const npc = this.game.rpg?.npcs?.find((candidate) => candidate.id === this.id);
+    if (!npc?.root) throw new Error(`Interactive NPC anchor not found: ${this.id}`);
+
     const [layers, animGltf] = await Promise.all([
       buildCharacterLayers(this.config, 2.42),
       loadGltf(ANIMATION_URL),
     ]);
+
+    this.anchor = npc.root;
+    this.fallbackChildren = [...npc.root.children];
+    this.fallbackChildren.forEach((child) => { child.visible = false; });
+
     layers.forEach((layer) => this.root.add(layer));
-    this.root.position.set(...this.config.position);
+    this.root.position.set(0, 0, 0);
     this.root.rotation.y = this.config.rotation || 0;
     addNameplate(this.root, this.config.label);
-    this.game.scene.add(this.root);
+    npc.root.add(this.root);
+
     this.driver = new SyncedAnimationDriver(layers, animGltf.animations || []);
     this.driver.loop('idle', 0, .88);
     this.ready = true;
@@ -403,6 +414,9 @@ class QuaterniusNPCController {
   dispose() {
     this.driver?.dispose();
     this.root.removeFromParent();
+    this.fallbackChildren.forEach((child) => { child.visible = true; });
+    this.fallbackChildren = [];
+    this.anchor = null;
   }
 }
 
