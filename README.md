@@ -1,75 +1,60 @@
 # Eteria: Fragmentos del Eclipse
 
-RPG 3D mobile-first hecho con **JavaScript + Three.js + HTML5/CSS**, empaquetable como **APK Android con Capacitor** y servido por **Python/FastAPI**.
+RPG 3D mobile-first hecho con **JavaScript + Three.js**, empaquetable como APK Android con Capacitor y servido por **FastAPI**.
 
-## Estado actual
+## Eteria 4.0
 
-### Eteria 3.0
+La versión 4.0 transforma la demo original en una base de action-RPG con progresión persistente:
 
-La versión 3.0 incorpora sistemas RPG completos sobre la base de Eteria 2.0:
+- dos biomas jugables: **Valle de Eteria** y **Tierras de Ceniza**;
+- Vharok con **3 fases de combate**;
+- enemigos cuerpo a cuerpo y **Arqueros de Ceniza a distancia** con proyectiles;
+- seis armas, combos de cuatro golpes y seis técnicas especiales;
+- inventario, cofres, materiales y guardado local;
+- armaduras equipables por ranuras **cabeza, armadura y talismán**;
+- cambios visuales del equipo sobre el héroe;
+- atributos **STR, DEF, CRIT y HP** que modifican el combate;
+- **árbol de 8 habilidades** con puntos ganados al subir de nivel;
+- habilidades de daño, defensa, crítico, cooldown, ejecución y robo de vida;
+- comerciante físico **Bram** con tienda de armaduras y pociones;
+- esencia/oro con utilidad real;
+- NPC Liora y Eldren con diálogos y recompensas;
+- diario con **misiones principales y secundarias**;
+- recompensas de misión: esencia, puntos de habilidad y equipo;
+- atmósfera, minimapa y objetivos diferentes por bioma;
+- final del capítulo al limpiar las Tierras de Ceniza y alcanzar el faro oriental.
 
-- héroe procedural con armadura, capa, runas y animaciones de movimiento;
-- **seis armas** con daño, alcance, crítico y técnica especial propia;
-- **combo de cuatro golpes** con movimientos distintos según el arma;
-- técnicas especiales:
-  - Hoja de Éter: **Arco de Éter**;
-  - Hacha de Brasa: **Corte Infernal** con quemadura;
-  - Lanza Lunar: **Estocada Lunar** de largo alcance;
-  - Dagas de la Grieta: **Ráfaga Fantasma** de cinco impactos;
-  - Martillo Solar: **Terremoto Solar** con daño de área y empuje;
-  - Guja del Eclipse: **Espiral del Eclipse** con robo de vida;
-- enemigos con animaciones de ataque y tres arquetipos diferentes;
-- jefe **Vharok, Guardián del Eclipse**;
-- **inventario visual** con armas, materiales, estadísticas y equipo;
-- **seis cofres físicos** con loot persistente;
-- objetos y materiales: Polvo de Éter, Fragmentos Lunares, Núcleos de Brasa y Sellos Antiguos;
-- NPC físicos **Liora** y **Eldren**;
-- diálogos que cambian según el capítulo de la historia;
-- recompensas únicas por conversar con NPC;
-- partículas 3D, ondas, arcos, estelas y números flotantes de daño;
-- minimapa, jefe, XP, niveles, pociones y guardado local;
-- persistencia de inventario, cofres abiertos y recompensas de NPC.
-
-## Controles
-
-### PC
+## Controles PC
 
 - `WASD`: movimiento
-- `Espacio`: ataque / combo
+- `Espacio`: combo
 - `E`: técnica especial
-- `F`: interactuar con NPC o cofres
+- `F`: interactuar
 - `I`: inventario
+- `C`: personaje/equipo/habilidades
+- `J`: diario de misiones
 - `R`: cambiar arma
-- `1-6`: seleccionar arma desbloqueada
+- `1-6`: seleccionar arma
 - `Q`: poción
 - `Shift`: dash
-- `Esc`: cerrar panel / pausa
+- `Esc`: cerrar panel o pausar
 
-### Móvil
-
-Joystick virtual más botones dedicados para combo, técnica especial, dash, poción, cambio de arma e interacción.
+En móvil se usan controles táctiles para movimiento, combate e interacción, además de los paneles del HUD.
 
 ## Arquitectura
 
 ```text
-eteria-rpg/
-├─ frontend/
-│  ├─ src/main.js
-│  ├─ src/gameData.js
-│  ├─ src/models.js
-│  ├─ src/rpgSystems.js
-│  ├─ src/style.css
-│  ├─ public/
-│  └─ package.json
-├─ backend/
-│  ├─ main.py
-│  └─ requirements.txt
-├─ .github/workflows/
-├─ Dockerfile
-└─ README.md
+frontend/src/
+├─ main.js                 # motor principal
+├─ gameData.js             # armas, enemigos, historia
+├─ models.js               # modelos procedurales
+├─ rpgSystems.js           # inventario, NPC, cofres, combos y VFX
+├─ progressionSystems.js   # armaduras, stats, tienda, skills y quests
+├─ worldExpansion.js       # Tierras de Ceniza, ranged AI y fases de Vharok
+└─ style.css
 ```
 
-## Desarrollo local
+## Desarrollo
 
 ```bash
 cd frontend
@@ -77,7 +62,7 @@ npm install
 npm run dev
 ```
 
-Para probar el build de producción:
+Build de producción:
 
 ```bash
 cd frontend
@@ -88,24 +73,17 @@ pip install -r backend/requirements.txt
 uvicorn backend.main:app --host 0.0.0.0 --port 10000
 ```
 
-## Docker
+## Docker / Y700
 
-```bash
-docker build -t eteria-rpg .
-docker run --rm -p 10000:10000 eteria-rpg
-```
+El workflow **Build and publish Y700 image** publica la imagen de producción en GHCR. El manifiesto `y700.deploy.yml` mantiene el despliegue automático del servidor Y700.
 
 ## Android
 
-Al hacer push a `main`, el workflow **Build Android APK** genera automáticamente un APK debug descargable desde GitHub Actions.
+Cada push a `main` ejecuta **Build Android APK** y genera un APK debug mediante Capacitor.
 
-## Despliegue Y700
+## Próximas expansiones naturales
 
-El workflow **Build and publish Y700 image** publica la imagen de producción en GHCR para el despliegue del servidor Y700.
-
-## Próximas expansiones posibles
-
-El código de Eteria 3.0 deja preparados los sistemas para añadir armaduras equipables, comerciantes, árbol de habilidades, misiones secundarias, nuevos mapas/biomas, fases adicionales para jefes, sonido/música, guardado cloud y multijugador.
+Sonido y música, más biomas, crafting, comerciantes especializados, armaduras con sets, nuevas clases de enemigos, bosses regionales, guardado cloud y multijugador.
 
 ## Licencia
 
