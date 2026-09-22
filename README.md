@@ -2,6 +2,25 @@
 
 RPG 3D mobile-first hecho con **JavaScript + Three.js**, empaquetable como APK Android con Capacitor y servido por **FastAPI**.
 
+## Eteria 4.2
+
+La versión 4.2 añade una segunda capa de personaje preparada para producción:
+
+- protagonista cargado como **GLTF 2.0** mediante `GLTFLoader`;
+- skeleton de 17 joints y `SkinnedMesh`;
+- `AnimationMixer` con crossfade entre Idle, Walk, Run, Attack 1/2, Heavy Attack y Dash;
+- Walk y Run derivados de motion capture real del **CMU Graphics Lab Motion Capture Database**, retargeteados al skeleton de Eteria;
+- materiales PBR diferenciados para piel, tela, cuero y acero, con base color, normal y metallic/roughness textures;
+- morph targets faciales **Blink** y **Smile**, con parpadeo automático;
+- `WeaponSocket_R` en la mano para montar las seis armas V4.1 sobre el esqueleto;
+- equipo de cabeza, pecho y talismán sincronizado también al héroe GLTF;
+- el GLTF se genera automáticamente durante `npm run dev` y `npm run build`;
+- fallback automático al personaje procedural V4.1 si el GLTF no puede cargarse.
+
+El archivo final se genera en `public/assets/eteria_hero.gltf` desde `scripts/generate-hero-gltf.mjs`. La procedencia del mocap está documentada en `frontend/scripts/MOCAP_ATTRIBUTION.md`.
+
+> Los clips de combate siguen siendo animaciones esqueléticas originales de Eteria. El mocap CMU se utiliza actualmente en la locomoción Walk/Run.
+
 ## Eteria 4.1
 
 La actualización 4.1 rehace la identidad visual del protagonista y su arsenal usando como referencia la guía de arte creada para Eteria:
