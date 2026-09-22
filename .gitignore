@@ -22,3 +22,6 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Build-fetched CC0 3D assets
+frontend/public/assets/kaykit/runtime/

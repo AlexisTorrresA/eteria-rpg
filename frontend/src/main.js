@@ -6,8 +6,11 @@ import { RPGSystems } from './rpgSystems.js';
 import { ProgressionSystems } from './progressionSystems.js';
 import { WorldExpansion } from './worldExpansion.js';
 import { attachRiggedHero } from './heroAsset.js';
+import { attachKayKitHero, attachKayKitEnemy } from './kaykitAssets.js';
 
-const RIGGED_HERO_EXPERIMENTAL = new URLSearchParams(location.search).get('rig') === '1';
+const query = new URLSearchParams(location.search);
+const RIGGED_HERO_EXPERIMENTAL = query.get('rig') === '1';
+const FORCE_PROCEDURAL_HERO = query.get('hero') === 'procedural';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game-canvas');
@@ -289,6 +292,16 @@ class EteriaGame {
         this.progression?.applyEquipmentVisual();
         toast('Modo experimental GLTF activo.');
       });
+    } else if (!FORCE_PROCEDURAL_HERO) {
+      attachKayKitHero(this, this.currentWeapon()).then((controller) => {
+        if (!controller) {
+          toast('Modelo externo no disponible · usando héroe Eteria.');
+          return;
+        }
+        this.heroAnimator = controller;
+        this.progression?.applyEquipmentVisual();
+        toast('Héroe 3D KayKit cargado.');
+      });
     }
   }
 
@@ -365,7 +378,7 @@ class EteriaGame {
     group.position.set(x, 0, z);
     this.scene.add(group);
     const hp = archetype.hp + this.state.level * archetype.hpPerLevel;
-    return {
+    const enemy = {
       group, hp, maxHp: hp,
       speed: rand(archetype.speed[0], archetype.speed[1]),
       cooldown: rand(.3,1),
@@ -374,8 +387,20 @@ class EteriaGame {
       phase: rand(0,Math.PI*2),
       bodyMat: model.bodyMat,
       archetype,
-      isBoss: false
+      isBoss: false,
+      authoredVisual: null
     };
+
+    attachKayKitEnemy(this, enemy).then((controller) => {
+      if (!controller) return;
+      if (!enemy.group.parent) {
+        controller.dispose();
+        return;
+      }
+      enemy.authoredVisual = controller;
+    });
+
+    return enemy;
   }
 
   spawnBoss() {
@@ -551,6 +576,7 @@ class EteriaGame {
   }
 
   killEnemy(enemy) {
+    enemy.authoredVisual?.dispose();
     this.rpg?.spawnBurst(enemy.group.position.clone().add(new THREE.Vector3(0, 1.2, 0)), enemy.archetype?.glow || 0xf8fafc, enemy.isBoss ? 34 : 16, enemy.isBoss ? 1.6 : 1.0);
     this.scene.remove(enemy.group);
     this.enemies = this.enemies.filter((e) => e !== enemy);
@@ -698,6 +724,7 @@ class EteriaGame {
 
       if (enemy.archetype.ranged) {
         this.world?.updateRangedEnemy(enemy, dt, toPlayer, d);
+        enemy.authoredVisual?.update(dt, d < 18, false);
         continue;
       }
 
@@ -730,6 +757,7 @@ class EteriaGame {
         enemy.group.rotation.x = THREE.MathUtils.lerp(enemy.group.rotation.x, 0, .18);
         enemy.group.rotation.z = THREE.MathUtils.lerp(enemy.group.rotation.z, 0, .18);
       }
+      enemy.authoredVisual?.update(dt, d < 15 && d > 1.4, enemy.attackAnim > 0);
     }
   }
 
