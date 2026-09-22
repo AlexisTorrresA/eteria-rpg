@@ -252,9 +252,22 @@ export class ProgressionSystems {
       rig.torso.material.color.setHex(0x1d4ed8);
     }
 
-    const headColor=head?.color ?? 0x172554;
-    rig.hair.material.color.setHex(headColor);
-    rig.brow.material.color.setHex(headColor);
+    rig.hair.material.color.setHex(0x241a17);
+    rig.brow.material.color.setHex(0x33231d);
+    if (rig.hoodGear) {
+      rig.hoodGear.visible = head?.id === 'moon-hood';
+      rig.hoodGear.material.color.setHex(head?.color ?? 0x334155);
+    }
+    if (rig.crownGear) {
+      rig.crownGear.visible = head?.id === 'eclipse-crown';
+      rig.crownGear.traverse(obj => {
+        if (obj.isMesh) {
+          obj.material.color.setHex(head?.color ?? 0x8d949c);
+          obj.material.emissive?.setHex(head?.id === 'eclipse-crown' ? 0x581c87 : 0x000000);
+          if ('emissiveIntensity' in obj.material) obj.material.emissiveIntensity = head?.id === 'eclipse-crown' ? .35 : 0;
+        }
+      });
+    }
 
     if(charm){
       rig.rune.material.color.setHex(charm.color);
