@@ -2,6 +2,24 @@
 
 RPG 3D mobile-first hecho con **JavaScript + Three.js**, empaquetable como APK Android con Capacitor y servido por **FastAPI**.
 
+## Eteria 6
+
+Eteria 6 sustituye el héroe principal de KayKit por una composición humanoide modular basada en **Quaternius**, manteniendo KayKit como fallback seguro:
+
+- protagonista ensamblado por capas independientes de **outfit + cabeza + cabello**;
+- tres presets visuales ligados al equipo: **Guardián**, **Explorador** y **Espadachín del Éter**;
+- animación mediante **Universal Animation Library 2**, con selección semántica de idle, walk, run, dodge, combos y ataque pesado;
+- cada capa modular comparte exactamente la misma escala y animación para evitar separaciones de cabeza, cabello o ropa;
+- sockets de arma sobre `hand_r` / `hand_l`, incluyendo soporte para dagas dobles;
+- Liora y Eldren pasan a tener presencia física como NPC humanoides animados;
+- el héroe procedural sigue disponible como último fallback;
+- orden de carga por defecto: **Quaternius → KayKit → procedural**;
+- `?hero=kaykit` fuerza el héroe anterior y `?hero=procedural` fuerza el modelo procedural;
+- assets descargados en build, fijados por commit y comprobados por Git blob SHA;
+- los binarios descargados se mantienen fuera del repositorio y su procedencia se documenta en `frontend/scripts/QUATERNIUS_ASSETS.md`.
+
+La cámara dinámica de Eteria 5.1 se conserva: exploración abierta, acercamiento contextual en combate, encuadre de jefe, dash y golpes con respuesta de cámara.
+
 ## Eteria 5.1
 
 La versión 5.1 mejora la sensación de juego del nuevo arte 3D:
@@ -137,9 +155,12 @@ En móvil se usan controles táctiles para movimiento, combate e interacción, a
 
 ```text
 frontend/src/
-├─ main.js                 # motor principal
+├─ main.js                 # motor principal y selección de render del héroe
+├─ quaterniusAssets.js     # héroe/NPC humanos, capas, sockets y UAL2
+├─ kaykitAssets.js         # fallback authored Eteria 5
+├─ cameraController.js     # cámara contextual dinámica
 ├─ gameData.js             # armas, enemigos, historia
-├─ models.js               # modelos procedurales
+├─ models.js               # modelos procedurales y armas propias
 ├─ rpgSystems.js           # inventario, NPC, cofres, combos y VFX
 ├─ progressionSystems.js   # armaduras, stats, tienda, skills y quests
 ├─ worldExpansion.js       # Tierras de Ceniza, ranged AI y fases de Vharok
