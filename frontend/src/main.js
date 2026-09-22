@@ -7,6 +7,7 @@ import { ProgressionSystems } from './progressionSystems.js';
 import { WorldExpansion } from './worldExpansion.js';
 import { attachRiggedHero } from './heroAsset.js';
 import { attachKayKitHero, attachKayKitEnemy } from './kaykitAssets.js';
+import { DynamicCameraController } from './cameraController.js';
 
 const query = new URLSearchParams(location.search);
 const RIGGED_HERO_EXPERIMENTAL = query.get('rig') === '1';
@@ -102,6 +103,7 @@ class EteriaGame {
     this.defaultState();
     this.createWorld();
     this.createPlayer();
+    this.dynamicCamera = new DynamicCameraController(this);
     this.rpg = new RPGSystems(this, { toast, vibrate });
     this.progression = new ProgressionSystems(this, { toast, vibrate });
     this.world = new WorldExpansion(this, { toast, vibrate });
@@ -424,6 +426,7 @@ class EteriaGame {
     };
     this.enemies.push(this.boss);
     this.storyKey = 'boss';
+    this.dynamicCamera?.focusOn(group.position, 2.4, .58);
     toast('Vharok ha despertado junto al portal.');
     this.updateUI();
   }
@@ -617,6 +620,7 @@ class EteriaGame {
     this.dashTimer = 2.15;
     this.dashActive = .19;
     this.heroAnimator?.playDash();
+    this.dynamicCamera?.kick('dash');
     vibrate(22);
     UI.dashButton.classList.add('cooldown');
   }
@@ -655,6 +659,7 @@ class EteriaGame {
     if (this.finished) return;
     amount = this.progression?.incomingDamage(amount) ?? amount;
     this.state.hp = Math.max(0, this.state.hp - amount);
+    this.dynamicCamera?.kick('damage');
     vibrate(45);
     this.rpg?.showFloatingText(this.player.position.clone().add(new THREE.Vector3(0, 2.45, 0)), `-${Math.round(amount)}`, '#fb7185', true);
     this.rpg?.spawnBurst(this.player.position.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xfb7185, 8, .55);
@@ -672,19 +677,37 @@ class EteriaGame {
   updatePlayer(dt) {
     let x = this.joystick.x + (this.keys.KeyD || this.keys.ArrowRight ? 1 : 0) - (this.keys.KeyA || this.keys.ArrowLeft ? 1 : 0);
     let z = this.joystick.y + (this.keys.KeyS || this.keys.ArrowDown ? 1 : 0) - (this.keys.KeyW || this.keys.ArrowUp ? 1 : 0);
-    const len = Math.hypot(x, z);
-    if (len > 1) { x /= len; z /= len; }
-    const moving = Math.hypot(x,z) > .08;
-    const speed = 5.1 + (this.state.level - 1) * .08;
+    const inputStrength = THREE.MathUtils.clamp(Math.hypot(x, z), 0, 1);
+    if (inputStrength > 1) { x /= inputStrength; z /= inputStrength; }
+    const moving = inputStrength > .08;
+
+    const levelBonus = (this.state.level - 1) * .055;
+    const walkSpeed = 2.45 + levelBonus;
+    const runSpeed = 4.85 + levelBonus;
+    const locomotionBlend = THREE.MathUtils.smoothstep(inputStrength, .22, .82);
+    const speed = THREE.MathUtils.lerp(walkSpeed, runSpeed, locomotionBlend);
+
     if (moving) {
       const dir = new THREE.Vector3(x, 0, z).normalize();
-      this.lastMove.lerp(dir, .3).normalize();
-      const multiplier = this.dashActive > 0 ? 3.5 : 1;
+      this.lastMove.lerp(dir, 1 - Math.exp(-7.5 * dt)).normalize();
+      const multiplier = this.dashActive > 0 ? 2.8 : 1;
       this.player.position.addScaledVector(dir, speed * multiplier * dt);
-      this.player.rotation.y = Math.atan2(-dir.x, -dir.z);
-      this.player.position.y = Math.abs(Math.sin(this.elapsed * 10)) * .022;
+
+      const targetYaw = Math.atan2(-dir.x, -dir.z);
+      const yawDelta = Math.atan2(
+        Math.sin(targetYaw - this.player.rotation.y),
+        Math.cos(targetYaw - this.player.rotation.y)
+      );
+      const turnRate = this.dashActive > 0 ? 15 : 10.5;
+      this.player.rotation.y += yawDelta * (1 - Math.exp(-turnRate * dt));
+
+      if (this.heroAnimator?.ready) {
+        this.player.position.y = THREE.MathUtils.damp(this.player.position.y, 0, 13, dt);
+      } else {
+        this.player.position.y = Math.abs(Math.sin(this.elapsed * 9.2)) * .015;
+      }
     } else {
-      this.player.position.y = THREE.MathUtils.lerp(this.player.position.y, 0, .2);
+      this.player.position.y = THREE.MathUtils.damp(this.player.position.y, 0, 13, dt);
     }
     if (this.state.currentRegion === 'ashen-wastes') {
       this.player.position.x = clamp(this.player.position.x, 66, 144);
@@ -709,7 +732,12 @@ class EteriaGame {
     }
 
     this.rpg?.updateCombatAnimation(dt, moving);
-    this.heroAnimator?.update(dt, moving, this.dashActive > 0);
+    this.heroAnimator?.update(dt, moving, this.dashActive > 0, {
+      inputStrength,
+      locomotionBlend,
+      speed,
+      runSpeed
+    });
   }
 
   updateEnemies(dt) {
@@ -845,18 +873,7 @@ class EteriaGame {
   }
 
   updateCamera(dt) {
-    const targetPos = new THREE.Vector3(this.player.position.x, 6.35, this.player.position.z + 8.65);
-    const smoothing = 1 - Math.pow(.0015, dt);
-    this.camera.position.lerp(targetPos, smoothing);
-    this.camera.lookAt(this.player.position.x, 1.35, this.player.position.z - 1.35);
-
-    if (this.heroRim) {
-      this.heroRim.position.set(
-        this.player.position.x + 1.5,
-        this.player.position.y + 3.1,
-        this.player.position.z + 2.2
-      );
-    }
+    this.dynamicCamera?.update(dt);
   }
 
   updateAtmosphere() {
@@ -959,7 +976,7 @@ class EteriaGame {
   onResize() {
     const w = innerWidth, h = innerHeight;
     this.camera.aspect = w / h;
-    this.camera.fov = h > w ? 46 : 50;
+    // FOV is managed continuously by DynamicCameraController.
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, w < 900 ? 1.6 : 1.9));
