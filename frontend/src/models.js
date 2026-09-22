@@ -294,6 +294,26 @@ export function createHeroModel(weapon) {
   hair.position.set(0,2.39,.005);
   hair.scale.set(1.02,1.04,1);
 
+  const hoodGear = shadow(new THREE.Mesh(
+    new THREE.SphereGeometry(.355,18,12,0,Math.PI*2,0,Math.PI*.68),
+    mat(0x334155,{roughness:.94})
+  ));
+  hoodGear.position.set(0,2.37,.025);
+  hoodGear.scale.set(1.02,1.07,1.04);
+  hoodGear.visible = false;
+
+  const crownGear = new THREE.Group();
+  const crownBand = shadow(new THREE.Mesh(new THREE.TorusGeometry(.29,.022,7,20), steel));
+  crownBand.rotation.x = Math.PI/2;
+  crownBand.position.y = 2.46;
+  crownGear.add(crownBand);
+  for (let i=0;i<5;i++) {
+    const spike = shadow(new THREE.Mesh(new THREE.ConeGeometry(.035,.22,6), steelDark));
+    spike.position.set((i-2)*.11,2.59 - Math.abs(i-2)*.02,0);
+    crownGear.add(spike);
+  }
+  crownGear.visible = false;
+
   for (let i=0;i<8;i++) {
     const lock = shadow(new THREE.Mesh(new THREE.CapsuleGeometry(.018,.17,4,6), hairMat));
     const angle = -1.05 + i*.3;
@@ -430,7 +450,7 @@ export function createHeroModel(weapon) {
 
   root.add(
     undershirt,torso,chest,chestCenter,strapA,strapB,belt,buckle,
-    head,nose,jaw,hair,brow,cowlA,cowlB,
+    head,nose,jaw,hair,hoodGear,crownGear,brow,cowlA,cowlB,
     shoulderL,shoulderR,shoulderBandL,
     armL,armR,legL,legR,cape,backpack,bedroll,
     pendantChain,pendant,pendantGem,backRune,weaponSocket
@@ -445,7 +465,7 @@ export function createHeroModel(weapon) {
 
   return {
     root, weaponSocket, armL, armR, legL, legR, cape, rune: backRune,
-    torso, chest, hair, brow, shoulderL, shoulderR, backpack, pendant
+    torso, chest, hair, brow, shoulderL, shoulderR, backpack, pendant, hoodGear, crownGear
   };
 }
 
