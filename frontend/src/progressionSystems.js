@@ -236,8 +236,9 @@ export class ProgressionSystems {
 
   applyEquipmentVisual() {
     const rig=this.game.heroRig;
-    if(!rig) return;
     const s=this.game.state;
+    this.game.heroAnimator?.applyEquipmentVisual(s.equipment || {});
+    if(!rig) return;
     const chest=ARMORS.find(a=>a.id===s.equipment?.chest);
     const head=ARMORS.find(a=>a.id===s.equipment?.head);
     const charm=ARMORS.find(a=>a.id===s.equipment?.charm);
