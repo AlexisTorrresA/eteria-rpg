@@ -124,13 +124,46 @@ export const ENEMY_ARCHETYPES = {
     body: 0x263449,
     glow: 0x8b5cf6,
     scale: 1.16
+  },
+  ashArcher: {
+    id: 'ashArcher',
+    name: 'Arquero de Ceniza',
+    hp: 76,
+    hpPerLevel: 8,
+    speed: [1.45, 1.8],
+    damage: 12,
+    damagePerLevel: 1.25,
+    cooldown: [1.55, 2.05],
+    xp: 36,
+    gold: [16, 25],
+    body: 0x3b2f2f,
+    glow: 0xf97316,
+    scale: 1.02,
+    ranged: true,
+    region: 'ashen-wastes'
+  },
+  ashHound: {
+    id: 'ashHound',
+    name: 'Sabueso de Escoria',
+    hp: 88,
+    hpPerLevel: 9,
+    speed: [2.35, 2.75],
+    damage: 13,
+    damagePerLevel: 1.35,
+    cooldown: [1.0, 1.3],
+    xp: 38,
+    gold: [14, 23],
+    body: 0x2b1b18,
+    glow: 0xef4444,
+    scale: 0.96,
+    region: 'ashen-wastes'
   }
 };
 
 export const BOSS = {
   id: 'eclipse-warden',
   name: 'Vharok, Guardián del Eclipse',
-  hp: 390,
+  hp: 540,
   hpPerLevel: 32,
   speed: 1.75,
   damage: 20,
@@ -165,9 +198,14 @@ export const STORY = {
     status: 'Derrota al Guardián del Eclipse junto al portal.'
   },
   finale: {
-    chapter: 'CAPÍTULO COMPLETADO',
-    title: 'El umbral se abre',
-    status: 'Vharok ha caído. El portal responde a tu presencia.'
+    chapter: 'CAPÍTULO V · TRAS EL UMBRAL',
+    title: 'Las Tierras de Ceniza',
+    status: 'Vharok ha caído. Cruza el portal hacia las Tierras de Ceniza.'
+  },
+  wastes: {
+    chapter: 'CAPÍTULO V · LAS TIERRAS DE CENIZA',
+    title: 'Un mundo más allá del valle',
+    status: 'Derrota 6 criaturas de Ceniza y alcanza el faro oriental.'
   }
 };
 
