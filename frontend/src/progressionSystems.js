@@ -81,8 +81,11 @@ export class ProgressionSystems {
       shadeKills:0,chests:0,talked:[],ashKills:0,ashArchers:0,enteredAshes:false,
       completed:[],...(s.questProgress||{})
     };
+    s.questProgress.chests=Math.max(s.questProgress.chests||0,s.chestsOpened||0);
+    for(const npcId of (s.npcRewards||[])) if(!s.questProgress.talked.includes(npcId)) s.questProgress.talked.push(npcId);
     s.statsVersion=1;
     this.recomputeMaxHp();
+    this.applyEquipmentVisual();
   }
 
   getStats() {
@@ -224,10 +227,44 @@ export class ProgressionSystems {
     if (!item||!s.ownedArmor.includes(id)) return;
     s.equipment[item.slot]=id;
     this.recomputeMaxHp();
+    this.applyEquipmentVisual();
     this.toast(`${item.icon} ${item.name} equipada`);
     this.renderAll();
     this.game.updateUI();
     this.game.save();
+  }
+
+  applyEquipmentVisual() {
+    const rig=this.game.heroRig;
+    if(!rig) return;
+    const s=this.game.state;
+    const chest=ARMORS.find(a=>a.id===s.equipment?.chest);
+    const head=ARMORS.find(a=>a.id===s.equipment?.head);
+    const charm=ARMORS.find(a=>a.id===s.equipment?.charm);
+
+    if(chest){
+      rig.torso.material.color.setHex(chest.color);
+      rig.shoulderL.material.color.setHex(chest.color);
+      rig.shoulderR.material.color.setHex(chest.color);
+      rig.chest.material.emissive.setHex(chest.id==='guardian-plate'?0x334155:0x000000);
+      rig.chest.material.emissiveIntensity=chest.id==='guardian-plate'?.35:0;
+    } else {
+      rig.torso.material.color.setHex(0x1d4ed8);
+    }
+
+    const headColor=head?.color ?? 0x172554;
+    rig.hair.material.color.setHex(headColor);
+    rig.brow.material.color.setHex(headColor);
+
+    if(charm){
+      rig.rune.material.color.setHex(charm.color);
+      rig.rune.material.emissive.setHex(charm.color);
+      rig.rune.material.emissiveIntensity=2.1;
+    } else {
+      rig.rune.material.color.setHex(0x67e8f9);
+      rig.rune.material.emissive.setHex(0x0891b2);
+      rig.rune.material.emissiveIntensity=1.8;
+    }
   }
 
   buy(id) {
